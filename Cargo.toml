@@ -1,0 +1,13 @@
+[package]
+name = "cargo-bitbake"
+version = "0.1.0"
+authors = ["Doug Goldstein <cardoe@cardoe.com>"]
+license = "MIT/Apache-2.0"
+repository = "https://github.com/cardoe/cargo-bitbake"
+description = """
+Generates a BitBake recipe for a package utilizing meta-rust's classes.
+"""
+
+[dependencies]
+cargo = "0.*"
+rustc-serialize = "0.3"

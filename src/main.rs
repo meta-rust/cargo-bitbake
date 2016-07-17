@@ -40,7 +40,7 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
     let resolve = try!(ops::resolve_pkg(&mut registry, &package, config));
 
     for x in resolve.iter() {
-        println!("crate://{}/{}", x.name(), x.version());
+        println!("crate://crates.io/{}/{}", x.name(), x.version());
     }
 
     Ok(None)

@@ -9,5 +9,5 @@ Generates a BitBake recipe for a package utilizing meta-rust's classes.
 """
 
 [dependencies]
-cargo = "0.*"
+cargo = "^0.10"
 rustc-serialize = "0.3"

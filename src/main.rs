@@ -14,7 +14,9 @@ struct Options {
 }
 
 fn main() {
-    cargo::execute_main_without_stdin(real_main, false, r#"
+    cargo::execute_main_without_stdin(real_main,
+                                      false,
+                                      r#"
 Create BitBake recipe for a project
 
 Usage:

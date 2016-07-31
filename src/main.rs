@@ -8,7 +8,10 @@ use cargo::core::registry::PackageRegistry;
 use cargo::ops;
 use cargo::util::important_paths;
 use rustache::HashBuilder;
-use std::io::Read;
+use std::error::Error;
+use std::fs::OpenOptions;
+use std::io;
+use std::path::PathBuf;
 
 #[derive(RustcDecodable)]
 struct Options {
@@ -69,20 +72,35 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
         .map(|t| t.clone())
         .unwrap_or(String::from("unknown repo"));
 
+    // build up the path
+    let recipe_path = PathBuf::from(format!("{}_{}.bb", package.name(), package.version()));
+
     // build up the varibles for the template
     let data = HashBuilder::new()
         .insert_string("summary", summary.trim())
         .insert_string("repository", repo.trim())
         .insert_string("src_uri", src_uris.join(""));
 
-    match rustache::render_text(template, data) {
-        Ok(mut templ) => {
-            let mut mystr = String::new();
-            templ.read_to_string(&mut mystr);
-            println!("{}", mystr);
-        }
-        Err(_) => return Err(CliError::new("unable to generate BitBake recipe", 1)),
-    }
+    // generate the BitBake recipe using Rustache to process the template
+    let mut templ = try!(rustache::render_text(template, data).map_err(|_| {
+        CliError::new("unable to generate BitBake recipe: {}", 1)
+    }));
+
+    // Open the file where we'll write the BitBake recipe
+    let mut file = try!(OpenOptions::new()
+                        .write(true)
+                        .create(true)
+                        .open(&recipe_path)
+                        .map_err(|err| {
+                            CliError::new(&format!("failed to create BitBake recipe: {}", err.description()), 1)
+                        }));
+
+    // write the contents out
+    try!(io::copy(&mut templ, &mut file).map_err(|err| {
+        CliError::new(&format!("unable to write BitBake recipe to disk: {}", err.description()), 1)
+    }));
+
+    println!("Wrote: {}", recipe_path.display());
 
     Ok(None)
 }

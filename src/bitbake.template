@@ -1,4 +1,4 @@
-inherit cargo_util
+inherit cargo
 
 SRC_URI = " \
 {{src_uri}}"

@@ -1,4 +1,6 @@
 inherit cargo
+# replace the above line with the line below if on the krogth branch
+# inherit cargo_util
 
 SRC_URI = " \
 {{src_uri}}"

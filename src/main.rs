@@ -13,6 +13,8 @@ use std::fs::OpenOptions;
 use std::io;
 use std::path::PathBuf;
 
+const CRATES_IO_URL: &'static str = "crates.io";
+
 #[derive(RustcDecodable)]
 struct Options {
     flag_verbose: bool,
@@ -48,10 +50,22 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
     let resolve = try!(ops::resolve_pkg(&mut registry, &package, config));
 
     // build the crate URIs
-    let mut src_uris = Vec::<String>::new();
-    for x in resolve.iter() {
-        src_uris.push(format!("crate://crates.io/{}/{} \\\n", x.name(), x.version()));
-    }
+    let mut src_uris = resolve.iter()
+        .map(|pkg| {
+            // get the source info for this package
+            let src_id = pkg.source_id();
+            if src_id.is_registry() {
+                // this package appears in a crate registry
+                format!("crate://{}/{}/{} \\\n",
+                        CRATES_IO_URL,
+                        pkg.name(),
+                        pkg.version())
+            } else {
+                format!("{} \\\n", src_id.url().to_string())
+            }
+        })
+        .collect::<Vec<String>>();
+
     src_uris.push(String::from("crate-index://crates.io/CARGO_INDEX_COMMIT \\\n"));
 
     // the bitbake recipe template
@@ -82,22 +96,24 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
         .insert_string("src_uri", src_uris.join(""));
 
     // generate the BitBake recipe using Rustache to process the template
-    let mut templ = try!(rustache::render_text(template, data).map_err(|_| {
-        CliError::new("unable to generate BitBake recipe: {}", 1)
-    }));
+    let mut templ = try!(rustache::render_text(template, data)
+        .map_err(|_| CliError::new("unable to generate BitBake recipe: {}", 1)));
 
     // Open the file where we'll write the BitBake recipe
     let mut file = try!(OpenOptions::new()
-                        .write(true)
-                        .create(true)
-                        .open(&recipe_path)
-                        .map_err(|err| {
-                            CliError::new(&format!("failed to create BitBake recipe: {}", err.description()), 1)
-                        }));
+        .write(true)
+        .create(true)
+        .open(&recipe_path)
+        .map_err(|err| {
+            CliError::new(&format!("failed to create BitBake recipe: {}", err.description()),
+                          1)
+        }));
 
     // write the contents out
     try!(io::copy(&mut templ, &mut file).map_err(|err| {
-        CliError::new(&format!("unable to write BitBake recipe to disk: {}", err.description()), 1)
+        CliError::new(&format!("unable to write BitBake recipe to disk: {}",
+                               err.description()),
+                      1)
     }));
 
     println!("Wrote: {}", recipe_path.display());

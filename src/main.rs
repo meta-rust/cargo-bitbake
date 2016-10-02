@@ -80,11 +80,17 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
         .map(|t| t.clone())
         .unwrap_or(String::from("unknown summary"));
 
-    // package repository
+    // package repository (source code location)
     let repo = metadata.repository
         .as_ref()
         .map(|t| t.clone())
         .unwrap_or(String::from("unknown repo"));
+
+    // package license
+    let license = metadata.license
+        .as_ref()
+        .map(|t| t.clone())
+        .unwrap_or(String::from("unknown license"));
 
     // build up the path
     let recipe_path = PathBuf::from(format!("{}_{}.bb", package.name(), package.version()));
@@ -93,6 +99,7 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
     let data = HashBuilder::new()
         .insert_string("summary", summary.trim())
         .insert_string("repository", repo.trim())
+        .insert_string("license", license.trim())
         .insert_string("index_src_uri", index_src_uri.trim())
         .insert_string("src_uri", src_uris.join(""));
 

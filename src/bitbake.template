@@ -21,4 +21,4 @@ LIC_FILES_CHKSUM=" \
 
 SUMMARY = "{{summary}}"
 HOMEPAGE = "{{repository}}"
-LICENSE = "MIT | Apache-2.0"
+LICENSE = "{{ license }}"

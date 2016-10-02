@@ -50,7 +50,7 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
     let resolve = try!(ops::resolve_pkg(&mut registry, &package, config));
 
     // build the crate URIs
-    let mut src_uris = resolve.iter()
+    let src_uris = resolve.iter()
         .map(|pkg| {
             // get the source info for this package
             let src_id = pkg.source_id();
@@ -66,7 +66,7 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
         })
         .collect::<Vec<String>>();
 
-    src_uris.push(String::from("crate-index://crates.io/CARGO_INDEX_COMMIT \\\n"));
+    let index_src_uri = String::from("crate-index://crates.io/CARGO_INDEX_COMMIT");
 
     // the bitbake recipe template
     let template = include_str!("bitbake.template");
@@ -93,6 +93,7 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
     let data = HashBuilder::new()
         .insert_string("summary", summary.trim())
         .insert_string("repository", repo.trim())
+        .insert_string("index_src_uri", index_src_uri.trim())
         .insert_string("src_uri", src_uris.join(""));
 
     // generate the BitBake recipe using Rustache to process the template

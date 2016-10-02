@@ -1,5 +1,4 @@
 extern crate cargo;
-extern crate rustache;
 extern crate rustc_serialize;
 
 use cargo::{Config, CliResult, CliError};
@@ -7,10 +6,9 @@ use cargo::core::Package;
 use cargo::core::registry::PackageRegistry;
 use cargo::ops;
 use cargo::util::important_paths;
-use rustache::HashBuilder;
 use std::error::Error;
 use std::fs::OpenOptions;
-use std::io;
+use std::io::Write;
 use std::path::PathBuf;
 
 const CRATES_IO_URL: &'static str = "crates.io";
@@ -68,9 +66,6 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
 
     let index_src_uri = String::from("crate-index://crates.io/CARGO_INDEX_COMMIT");
 
-    // the bitbake recipe template
-    let template = include_str!("bitbake.template");
-
     // root package metadata
     let metadata = package.manifest().metadata();
 
@@ -95,18 +90,6 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
     // build up the path
     let recipe_path = PathBuf::from(format!("{}_{}.bb", package.name(), package.version()));
 
-    // build up the varibles for the template
-    let data = HashBuilder::new()
-        .insert_string("summary", summary.trim())
-        .insert_string("repository", repo.trim())
-        .insert_string("license", license.trim())
-        .insert_string("index_src_uri", index_src_uri.trim())
-        .insert_string("src_uri", src_uris.join(""));
-
-    // generate the BitBake recipe using Rustache to process the template
-    let mut templ = try!(rustache::render_text(template, data)
-        .map_err(|_| CliError::new("unable to generate BitBake recipe: {}", 1)));
-
     // Open the file where we'll write the BitBake recipe
     let mut file = try!(OpenOptions::new()
         .write(true)
@@ -118,11 +101,18 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
         }));
 
     // write the contents out
-    try!(io::copy(&mut templ, &mut file).map_err(|err| {
-        CliError::new(&format!("unable to write BitBake recipe to disk: {}",
-                               err.description()),
-                      1)
-    }));
+    try!(write!(file,
+                include_str!("bitbake.template"),
+                summary = summary.trim(),
+                repository = repo.trim(),
+                license = license.trim(),
+                index_src_uri = index_src_uri.trim(),
+                src_uri = src_uris.join(""))
+        .map_err(|err| {
+            CliError::new(&format!("unable to write BitBake recipe to disk: {}",
+                                   err.description()),
+                          1)
+        }));
 
     println!("Wrote: {}", recipe_path.display());
 

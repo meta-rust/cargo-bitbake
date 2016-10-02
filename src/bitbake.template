@@ -5,12 +5,12 @@ inherit cargo
 # please note if you have entries that do not begin with crate://
 # you must change them to how that package can be fetched
 SRC_URI = " \
-{{src_uri}}"
+{src_uri}"
 
 # You must find a current version of the index from
 # https://github.com/rust-lang/crates.io-index
 # and update the hashes to reflect the hash of the downloaded tarball
-SRC_URI += "{{index_src_uri}}"
+SRC_URI += "{index_src_uri}"
 SRC_URI[index.md5sum] = "79f10f436dbf26737cc80445746f16b4"
 SRC_URI[index.sha256sum] = "86114b93f1f51aaf0aec3af0751d214b351f4ff9839ba031315c1b19dcbb1913"
 
@@ -19,6 +19,6 @@ LIC_FILES_CHKSUM=" \
     file://LICENSE-MIT;md5=0b29d505d9225d1f0815cbdcf602b901 \
 "
 
-SUMMARY = "{{summary}}"
-HOMEPAGE = "{{repository}}"
-LICENSE = "{{ license }}"
+SUMMARY = "{summary}"
+HOMEPAGE = "{repository}"
+LICENSE = "{license}"

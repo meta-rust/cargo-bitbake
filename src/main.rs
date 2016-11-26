@@ -48,7 +48,7 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
     let resolve = try!(ops::resolve_pkg(&mut registry, &package, config));
 
     // build the crate URIs
-    let src_uris = resolve.iter()
+    let mut src_uris = resolve.iter()
         .map(|pkg| {
             // get the source info for this package
             let src_id = pkg.source_id();
@@ -63,6 +63,9 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
             }
         })
         .collect::<Vec<String>>();
+
+    // sort the crate list
+    src_uris.sort();
 
     let index_src_uri = String::from("crate-index://crates.io/CARGO_INDEX_COMMIT");
 

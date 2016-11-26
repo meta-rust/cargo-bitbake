@@ -110,7 +110,9 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
                 repository = repo.trim(),
                 license = license.trim(),
                 index_src_uri = index_src_uri.trim(),
-                src_uri = src_uris.join(""))
+                src_uri = src_uris.join(""),
+                cargo_bitbake_ver = env!("CARGO_PKG_VERSION"),
+                )
         .map_err(|err| {
             CliError::new(&format!("unable to write BitBake recipe to disk: {}",
                                    err.description()),

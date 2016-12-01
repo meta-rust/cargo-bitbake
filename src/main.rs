@@ -90,7 +90,10 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
     let license = metadata.license
         .as_ref()
         .cloned()
-        .unwrap_or_else(|| String::from("unknown license"));
+        .unwrap_or_else(|| String::from("unknown"))
+        .split('/')
+        .map(|s| s.trim())
+        .join(" | ");
 
     // build up the path
     let recipe_path = PathBuf::from(format!("{}_{}.bb", package.name(), package.version()));

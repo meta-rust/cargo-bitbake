@@ -1,4 +1,5 @@
 extern crate cargo;
+extern crate itertools;
 extern crate rustc_serialize;
 
 use cargo::{Config, CliResult, CliError};
@@ -6,6 +7,7 @@ use cargo::core::Package;
 use cargo::core::registry::PackageRegistry;
 use cargo::ops;
 use cargo::util::important_paths;
+use itertools::Itertools;
 use std::error::Error;
 use std::fs::OpenOptions;
 use std::io::Write;

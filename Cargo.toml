@@ -14,4 +14,5 @@ Generates a BitBake recipe for a package utilizing meta-rust's classes.
 
 [dependencies]
 cargo = "^0.10"
+itertools = "^0.5.0"
 rustc-serialize = "^0.3"

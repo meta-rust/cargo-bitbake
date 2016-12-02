@@ -105,6 +105,7 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
     let mut file = try!(OpenOptions::new()
         .write(true)
         .create(true)
+        .truncate(true)
         .open(&recipe_path)
         .map_err(|err| {
             CliError::new(&format!("failed to create BitBake recipe: {}", err.description()),

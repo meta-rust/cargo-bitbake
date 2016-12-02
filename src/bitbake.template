@@ -5,8 +5,9 @@ inherit cargo
 # how to get {name} could be as easy as:
 # SRC_URI = "crate://crates.io/{name}/{version}"
 # or
-# SRC_URI = "git://github.com/you/{name}"
+# SRC_URI = "git://github.com/you/{name};protocol=https"
 # SRVREV = "{version}"
+# S = "${{WORKDIR}}/git"
 
 # please note if you have entries that do not begin with crate://
 # you must change them to how that package can be fetched

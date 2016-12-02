@@ -21,6 +21,7 @@ SRC_URI += " \
 # github corresponding to the revision that your Cargo.lock was generated
 # from
 
+# FIXME: update generateme with the real MD5 of the license file
 LIC_FILES_CHKSUM=" \
 {lic_files}
 "

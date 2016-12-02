@@ -11,9 +11,28 @@ use itertools::Itertools;
 use std::error::Error;
 use std::fs::OpenOptions;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 const CRATES_IO_URL: &'static str = "crates.io";
+
+fn license_file(license_name: &str) -> String {
+    // if the license exists at the top level then
+    // return the right URL to it. try to handle the special
+    // case license path we support as well
+    let special_name = format!("LICENSE-{}", license_name);
+    let lic_path = Path::new(license_name);
+    let spec_path = Path::new(&special_name);
+
+    if lic_path.exists() {
+        format!("file://{};md5=generateme \\\n", license_name)
+    } else if spec_path.exists() {
+        // the special case
+        format!("file://{};md5=generateme \\\n", special_name)
+    } else {
+        // fall through
+        format!("file://{};md5=generateme \\\n", license_name)
+    }
+}
 
 #[derive(RustcDecodable)]
 struct Options {
@@ -99,6 +118,18 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
         .map(|s| s.trim())
         .join(" | ");
 
+    // license files for the package
+    let lic_files = metadata.license
+        .as_ref()
+        .cloned()
+        .unwrap_or(metadata.license_file
+            .as_ref()
+            .cloned()
+            .unwrap_or_else(|| String::from("unknown")))
+        .split('/')
+        .map(license_file)
+        .join("");
+
     // build up the path
     let recipe_path = PathBuf::from(format!("{}_{}.bb", package.name(), package.version()));
 
@@ -119,6 +150,7 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
                 summary = summary.trim(),
                 homepage = homepage.trim(),
                 license = license.trim(),
+                lic_files = lic_files.trim(),
                 src_uri = src_uris.join(""),
                 cargo_bitbake_ver = env!("CARGO_PKG_VERSION"),
                 )

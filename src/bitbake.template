@@ -16,8 +16,7 @@ SRC_URI = " \
 # from
 
 LIC_FILES_CHKSUM=" \
-    file://LICENSE-APACHE;md5=1836efb2eb779966696f473ee8540542 \
-    file://LICENSE-MIT;md5=0b29d505d9225d1f0815cbdcf602b901 \
+{lic_files}
 "
 
 SUMMARY = "{summary}"

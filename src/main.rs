@@ -69,8 +69,6 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
     // sort the crate list
     src_uris.sort();
 
-    let index_src_uri = String::from("crate-index://crates.io/CARGO_INDEX_COMMIT");
-
     // root package metadata
     let metadata = package.manifest().metadata();
 
@@ -121,7 +119,6 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
                 summary = summary.trim(),
                 homepage = homepage.trim(),
                 license = license.trim(),
-                index_src_uri = index_src_uri.trim(),
                 src_uri = src_uris.join(""),
                 cargo_bitbake_ver = env!("CARGO_PKG_VERSION"),
                 )

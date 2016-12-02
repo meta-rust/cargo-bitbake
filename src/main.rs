@@ -81,6 +81,11 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
                              CRATES_IO_URL,
                              pkg.name(),
                              pkg.version()))
+            } else if src_id.is_path() {
+                // we don't want to spit out path based
+                // entries since they're within the crate
+                // we are packaging
+                None
             } else {
                 Some(format!("{} \\\n", src_id.url().to_string()))
             }

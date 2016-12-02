@@ -22,5 +22,5 @@ LIC_FILES_CHKSUM=" \
 "
 
 SUMMARY = "{summary}"
-HOMEPAGE = "{repository}"
+HOMEPAGE = "{homepage}"
 LICENSE = "{license}"

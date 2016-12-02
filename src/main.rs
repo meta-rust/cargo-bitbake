@@ -80,11 +80,14 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
         .cloned()
         .unwrap_or_else(|| String::from("unknown summary"));
 
-    // package repository (source code location)
-    let repo = metadata.repository
+    // package homepage (or source code location)
+    let homepage = metadata.homepage
         .as_ref()
         .cloned()
-        .unwrap_or_else(|| String::from("unknown repo"));
+        .unwrap_or(metadata.repository
+            .as_ref()
+            .cloned()
+            .unwrap_or_else(|| String::from("")));
 
     // package license
     let license = metadata.license
@@ -112,7 +115,7 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
     try!(write!(file,
                 include_str!("bitbake.template"),
                 summary = summary.trim(),
-                repository = repo.trim(),
+                homepage = homepage.trim(),
                 license = license.trim(),
                 index_src_uri = index_src_uri.trim(),
                 src_uri = src_uris.join(""),

@@ -99,7 +99,7 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
                 let url = match url.split_at(url.find(':').unwrap()) {
                     (proto @ "ssh", rest) |
                     (proto @ "https", rest) => {
-                        format!("git://{};protocol={};name={};destsuffix={}",
+                        format!("git{};protocol={};name={};destsuffix={}",
                                 rest,
                                 proto,
                                 pkg.name(),

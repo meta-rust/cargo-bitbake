@@ -5,6 +5,7 @@ extern crate rustc_serialize;
 use cargo::{Config, CliResult, CliError};
 use cargo::core::Package;
 use cargo::core::registry::PackageRegistry;
+use cargo::core::source::GitReference;
 use cargo::ops;
 use cargo::util::important_paths;
 use itertools::Itertools;
@@ -69,6 +70,7 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
     let resolve = try!(ops::resolve_pkg(&mut registry, &package, config));
 
     // build the crate URIs
+    let mut src_uri_extras = vec![];
     let mut src_uris = resolve.iter()
         .filter_map(|pkg| {
             // get the source info for this package
@@ -86,6 +88,49 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
                 // entries since they're within the crate
                 // we are packaging
                 None
+            } else if src_id.is_git() {
+                let url = src_id.url().to_string();
+
+                // covert the protocol to one that Yocto understands
+                // https://... -> git://...;protocol=https
+                // ssh://... -> git://...;protocol=ssh
+                // and append metadata necessary for Yocto to generate
+                // data for Cargo to understand
+                let url = match url.split_at(url.find(':').unwrap()) {
+                    (proto @ "ssh", rest) |
+                    (proto @ "https", rest) => {
+                        format!("git://{};protocol={};name={};destsuffix={}",
+                                rest,
+                                proto,
+                                pkg.name(),
+                                pkg.name())
+                    }
+                    (_, _) => format!("{};name={};destsuffix={}", url, pkg.name(), pkg.name()),
+                };
+
+                // save revision
+                src_uri_extras.push(format!("SRCREV_FORMAT .= \"_{}\"", pkg.name()));
+                let rev = match *src_id.git_reference().unwrap() {
+                    GitReference::Tag(ref s) |
+                    GitReference::Rev(ref s) => s.to_owned(),
+                    GitReference::Branch(ref s) => {
+                        if s == "master" {
+                            String::from("${{AUTOREV}}")
+                        } else {
+                            s.to_owned()
+                        }
+                    }
+                };
+
+                src_uri_extras.push(format!("SRCREV_{} = \"{}\"", pkg.name(), rev));
+                // instruct Cargo where to find this
+                src_uri_extras.push(
+                    format!("EXTRA_OECARGO_PATHS += \"${{WORKDIR}}/{}\"",
+                            pkg.name()
+                           )
+                );
+
+                Some(url)
             } else {
                 Some(format!("{} \\\n", src_id.url().to_string()))
             }
@@ -161,6 +206,7 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
                 license = license.trim(),
                 lic_files = lic_files.trim(),
                 src_uri = src_uris.join(""),
+                src_uri_extras = src_uri_extras.join("\n"),
                 cargo_bitbake_ver = env!("CARGO_PKG_VERSION"),
                 )
         .map_err(|err| {

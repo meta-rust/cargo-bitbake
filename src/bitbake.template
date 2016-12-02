@@ -13,6 +13,8 @@ inherit cargo
 SRC_URI += " \
 {src_uri}"
 
+{src_uri_extras}
+
 # if you are not using Cargo 0.13.0 or newer you must add the following:
 # SRC_URI += "crate-index://crates.io/CARGO_INDEX_COMMIT"
 # where CARGO_INDEX_COMMIT is a git revision of the crates.io repo on

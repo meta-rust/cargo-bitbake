@@ -70,17 +70,19 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
 
     // build the crate URIs
     let mut src_uris = resolve.iter()
-        .map(|pkg| {
+        .filter_map(|pkg| {
             // get the source info for this package
             let src_id = pkg.source_id();
-            if src_id.is_registry() {
+            if pkg.name() == package.name() {
+                None
+            } else if src_id.is_registry() {
                 // this package appears in a crate registry
-                format!("crate://{}/{}/{} \\\n",
-                        CRATES_IO_URL,
-                        pkg.name(),
-                        pkg.version())
+                Some(format!("crate://{}/{}/{} \\\n",
+                             CRATES_IO_URL,
+                             pkg.name(),
+                             pkg.version()))
             } else {
-                format!("{} \\\n", src_id.url().to_string())
+                Some(format!("{} \\\n", src_id.url().to_string()))
             }
         })
         .collect::<Vec<String>>();
@@ -147,6 +149,8 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
     // write the contents out
     try!(write!(file,
                 include_str!("bitbake.template"),
+                name = package.name(),
+                version = package.version(),
                 summary = summary.trim(),
                 homepage = homepage.trim(),
                 license = license.trim(),

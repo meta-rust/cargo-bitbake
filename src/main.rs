@@ -78,7 +78,7 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
     let summary = metadata.description
         .as_ref()
         .cloned()
-        .unwrap_or_else(|| String::from("unknown summary"));
+        .unwrap_or_else(|| String::from(package.name()));
 
     // package homepage (or source code location)
     let homepage = metadata.homepage

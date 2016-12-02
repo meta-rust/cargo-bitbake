@@ -93,7 +93,10 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
     let license = metadata.license
         .as_ref()
         .cloned()
-        .unwrap_or_else(|| String::from("unknown"))
+        .unwrap_or(metadata.license_file
+            .as_ref()
+            .cloned()
+            .unwrap_or_else(|| String::from("unknown")))
         .split('/')
         .map(|s| s.trim())
         .join(" | ");

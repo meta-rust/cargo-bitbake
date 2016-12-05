@@ -6,7 +6,7 @@ inherit cargo
 # SRC_URI = "crate://crates.io/{name}/{version}"
 # or
 # SRC_URI = "git://github.com/you/{name};protocol=https"
-# SRVREV = "{version}"
+# SRCREV = "{version}"
 # S = "${{WORKDIR}}/git"
 
 # please note if you have entries that do not begin with crate://

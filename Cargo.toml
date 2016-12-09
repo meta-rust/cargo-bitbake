@@ -1,6 +1,6 @@
 [package]
 name = "cargo-bitbake"
-version = "0.2.2"
+version = "0.3.0"
 authors = ["Doug Goldstein <cardoe@cardoe.com>"]
 license = "MIT/Apache-2.0"
 repository = "https://github.com/cardoe/cargo-bitbake"

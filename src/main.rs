@@ -1,5 +1,6 @@
 extern crate cargo;
 extern crate itertools;
+extern crate md5;
 extern crate rustc_serialize;
 
 use cargo::{Config, CliResult, CliError};
@@ -9,12 +10,21 @@ use cargo::core::source::GitReference;
 use cargo::ops;
 use cargo::util::important_paths;
 use itertools::Itertools;
+use md5::Context;
 use std::error::Error;
-use std::fs::OpenOptions;
-use std::io::Write;
+use std::fs::{File, OpenOptions};
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 const CRATES_IO_URL: &'static str = "crates.io";
+
+fn file_md5<P: AsRef<Path>>(license_file: P) -> Result<String, io::Error> {
+    let mut file = try!(File::open(license_file));
+    let mut context = Context::new();
+
+    try!(io::copy(&mut file, &mut context));
+    Ok(format!("{:x}", context.compute()))
+}
 
 fn license_file(license_name: &str) -> String {
     // if the license exists at the top level then
@@ -25,10 +35,14 @@ fn license_file(license_name: &str) -> String {
     let spec_path = Path::new(&special_name);
 
     if lic_path.exists() {
-        format!("file://{};md5=generateme \\\n", license_name)
+        let md5sum = file_md5(&license_name)
+            .unwrap_or_else(|_| String::from("generateme"));
+        format!("file://{};md5={} \\\n", license_name, md5sum)
     } else if spec_path.exists() {
         // the special case
-        format!("file://{};md5=generateme \\\n", special_name)
+        let md5sum = file_md5(&special_name)
+            .unwrap_or_else(|_| String::from("generateme"));
+        format!("file://{};md5={} \\\n", special_name, md5sum)
     } else {
         // fall through
         format!("file://{};md5=generateme \\\n", license_name)

@@ -13,7 +13,7 @@ Generates a BitBake recipe for a package utilizing meta-rust's classes.
 """
 
 [dependencies]
-cargo = "^0.10"
+cargo = "^0.16"
 itertools = "^0.5.0"
 md5 = "^0.3"
 rustc-serialize = "^0.3"

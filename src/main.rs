@@ -3,14 +3,16 @@ extern crate itertools;
 extern crate md5;
 extern crate rustc_serialize;
 
-use cargo::{Config, CliResult, CliError};
-use cargo::core::{Package, Resolve};
+use cargo::{Config, CliResult};
+use cargo::core::{Package, PackageSet, Resolve, Workspace};
 use cargo::core::registry::PackageRegistry;
 use cargo::core::source::GitReference;
+use cargo::core::resolver::Method;
 use cargo::ops;
-use cargo::util::{important_paths, CargoResult};
+use cargo::util::{human, important_paths, CargoResult};
 use itertools::Itertools;
 use md5::Context;
+use std::env;
 use std::error::Error;
 use std::fs::{File, OpenOptions};
 use std::io::{self, Write};
@@ -50,29 +52,39 @@ fn license_file(license_name: &str) -> String {
 }
 
 /// Finds the root Cargo.toml of the workspace
-fn workspace(config: &Config, manifest_path: Option<String>) -> CargoResult<Package> {
+fn workspace(config: &Config, manifest_path: Option<String>) -> CargoResult<Workspace> {
     let root = important_paths::find_root_manifest_for_wd(manifest_path, config.cwd())?;
-    Package::for_path(&root, config)
+    Workspace::new(&root, config)
 }
 
 /// Generates a package registry by using the Cargo.lock or creating one as necessary
 fn registry<'a>(config: &'a Config, package: &Package) -> CargoResult<PackageRegistry<'a>> {
-    let mut registry = PackageRegistry::new(config);
+    let mut registry = PackageRegistry::new(config)?;
     registry.add_sources(&[package.package_id().source_id().clone()])?;
     Ok(registry)
 }
 
 /// Resolve the packages necessary for the workspace
 fn resolve<'a>(registry: &mut PackageRegistry,
-               package: &'a Package,
-               config: &'a Config) -> CargoResult<Resolve> {
-    ops::resolve_pkg(registry, package, config)
+               workspace: &'a Workspace) -> CargoResult<(PackageSet<'a>, Resolve)> {
+    // resolve our dependencies
+    let (packages, resolve) = ops::resolve_ws(workspace)?;
+
+    // resolve with all features set so we ensure we get all of the depends downloaded
+    let resolve = ops::resolve_with_previous(registry,
+                                             workspace,
+                                             /* resolve it all */ Method::Everything,
+                                             /* previous */ Some(&resolve),
+                                             /* don't avoid any */ None,
+                                             /* specs */ &[])?;
+
+    Ok((packages, resolve))
 }
 
 #[derive(RustcDecodable)]
 struct Options {
-    flag_verbose: bool,
-    flag_quiet: bool,
+    flag_verbose: u32,
+    flag_quiet: Option<bool>,
 }
 
 fn main() {
@@ -92,18 +104,23 @@ Options:
 }
 
 fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
-    try!(config.shell().set_verbosity(options.flag_verbose, options.flag_quiet));
+    config.configure(options.flag_verbose,
+                     options.flag_quiet,
+                     /* color */ &None,
+                     /* frozen */ false,
+                     /* locked */ false)?;
 
     // Load the workspace and current package
-    let package = workspace(config, None)?;
+    let workspace = workspace(config, None)?;
+    let package = workspace.current()?;
 
     // Resolve all dependencies (generate or use Cargo.lock as necessary)
     let mut registry = registry(config, &package)?;
-    let resolve = resolve(&mut registry, &package, config)?;
+    let resolve = resolve(&mut registry, &workspace)?;
 
     // build the crate URIs
     let mut src_uri_extras = vec![];
-    let mut src_uris = resolve.iter()
+    let mut src_uris = resolve.1.iter()
         .filter_map(|pkg| {
             // get the source info for this package
             let src_id = pkg.source_id();
@@ -224,8 +241,7 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
         .truncate(true)
         .open(&recipe_path)
         .map_err(|err| {
-            CliError::new(&format!("failed to create BitBake recipe: {}", err.description()),
-                          1)
+            human(format!("failed to create BitBake recipe: {}", err.description()))
         }));
 
     // write the contents out
@@ -242,9 +258,8 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
                 cargo_bitbake_ver = env!("CARGO_PKG_VERSION"),
                 )
         .map_err(|err| {
-            CliError::new(&format!("unable to write BitBake recipe to disk: {}",
-                                   err.description()),
-                          1)
+            human(format!("unable to write BitBake recipe to disk: {}",
+                                   err.description()))
         }));
 
     println!("Wrote: {}", recipe_path.display());

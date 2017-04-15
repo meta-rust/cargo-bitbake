@@ -8,9 +8,13 @@ homepage = "https://github.com/cardoe/cargo-bitbake"
 documentation = "https://github.com/cardoe/cargo-bitbake"
 readme = "README.md"
 keywords = ["cargo-subcommand", "bitbake", "yocto", "recipe"]
+categories = ["command-line-utilities"]
 description = """
 Generates a BitBake recipe for a package utilizing meta-rust's classes.
 """
+
+[badges]
+travis-ci = { repository = "cardoe/cargo-bitbake" }
 
 [dependencies]
 cargo = "^0.16"

@@ -97,3 +97,7 @@ SUMMARY = "Generates a BitBake recipe for a package utilizing meta-rust's classe
 HOMEPAGE = "https://github.com/cardoe/cargo-bitbake"
 LICENSE = "MIT | Apache-2.0"
 ```
+
+## API
+
+API documentation is available at [docs.rs](https://docs.rs/cargo-bitbake/).

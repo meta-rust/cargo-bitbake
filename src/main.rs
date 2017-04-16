@@ -37,13 +37,11 @@ fn license_file(license_name: &str) -> String {
     let spec_path = Path::new(&special_name);
 
     if lic_path.exists() {
-        let md5sum = file_md5(&license_name)
-            .unwrap_or_else(|_| String::from("generateme"));
+        let md5sum = file_md5(&license_name).unwrap_or_else(|_| String::from("generateme"));
         format!("file://{};md5={} \\\n", license_name, md5sum)
     } else if spec_path.exists() {
         // the special case
-        let md5sum = file_md5(&special_name)
-            .unwrap_or_else(|_| String::from("generateme"));
+        let md5sum = file_md5(&special_name).unwrap_or_else(|_| String::from("generateme"));
         format!("file://{};md5={} \\\n", special_name, md5sum)
     } else {
         // fall through
@@ -66,17 +64,22 @@ fn registry<'a>(config: &'a Config, package: &Package) -> CargoResult<PackageReg
 
 /// Resolve the packages necessary for the workspace
 fn resolve<'a>(registry: &mut PackageRegistry,
-               workspace: &'a Workspace) -> CargoResult<(PackageSet<'a>, Resolve)> {
+               workspace: &'a Workspace)
+               -> CargoResult<(PackageSet<'a>, Resolve)> {
     // resolve our dependencies
     let (packages, resolve) = ops::resolve_ws(workspace)?;
 
     // resolve with all features set so we ensure we get all of the depends downloaded
     let resolve = ops::resolve_with_previous(registry,
                                              workspace,
-                                             /* resolve it all */ Method::Everything,
-                                             /* previous */ Some(&resolve),
-                                             /* don't avoid any */ None,
-                                             /* specs */ &[])?;
+                                             /* resolve it all */
+                                             Method::Everything,
+                                             /* previous */
+                                             Some(&resolve),
+                                             /* don't avoid any */
+                                             None,
+                                             /* specs */
+                                             &[])?;
 
     Ok((packages, resolve))
 }
@@ -106,9 +109,12 @@ Options:
 fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
     config.configure(options.flag_verbose,
                      options.flag_quiet,
-                     /* color */ &None,
-                     /* frozen */ false,
-                     /* locked */ false)?;
+                     /* color */
+                     &None,
+                     /* frozen */
+                     false,
+                     /* locked */
+                     false)?;
 
     // Load the workspace and current package
     let workspace = workspace(config, None)?;
@@ -120,7 +126,8 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
 
     // build the crate URIs
     let mut src_uri_extras = vec![];
-    let mut src_uris = resolve.1.iter()
+    let mut src_uris = resolve.1
+        .iter()
         .filter_map(|pkg| {
             // get the source info for this package
             let src_id = pkg.source_id();
@@ -173,11 +180,8 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
 
                 src_uri_extras.push(format!("SRCREV_{} = \"{}\"", pkg.name(), rev));
                 // instruct Cargo where to find this
-                src_uri_extras.push(
-                    format!("EXTRA_OECARGO_PATHS += \"${{WORKDIR}}/{}\"",
-                            pkg.name()
-                           )
-                );
+                src_uri_extras.push(format!("EXTRA_OECARGO_PATHS += \"${{WORKDIR}}/{}\"",
+                                            pkg.name()));
 
                 Some(url)
             } else {
@@ -203,18 +207,18 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
         .as_ref()
         .cloned()
         .unwrap_or(metadata.repository
-            .as_ref()
-            .cloned()
-            .unwrap_or_else(|| String::from("")));
+                       .as_ref()
+                       .cloned()
+                       .unwrap_or_else(|| String::from("")));
 
     // package license
     let license = metadata.license
         .as_ref()
         .cloned()
         .unwrap_or(metadata.license_file
-            .as_ref()
-            .cloned()
-            .unwrap_or_else(|| String::from("unknown")))
+                       .as_ref()
+                       .cloned()
+                       .unwrap_or_else(|| String::from("unknown")))
         .split('/')
         .map(|s| s.trim())
         .join(" | ");
@@ -224,9 +228,9 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
         .as_ref()
         .cloned()
         .unwrap_or(metadata.license_file
-            .as_ref()
-            .cloned()
-            .unwrap_or_else(|| String::from("unknown")))
+                       .as_ref()
+                       .cloned()
+                       .unwrap_or_else(|| String::from("unknown")))
         .split('/')
         .map(license_file)
         .join("");
@@ -236,13 +240,14 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
 
     // Open the file where we'll write the BitBake recipe
     let mut file = try!(OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(&recipe_path)
-        .map_err(|err| {
-            human(format!("failed to create BitBake recipe: {}", err.description()))
-        }));
+                            .write(true)
+                            .create(true)
+                            .truncate(true)
+                            .open(&recipe_path)
+                            .map_err(|err| {
+                                         human(format!("failed to create BitBake recipe: {}",
+                                                       err.description()))
+                                     }));
 
     // write the contents out
     try!(write!(file,
@@ -257,10 +262,10 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
                 src_uri_extras = src_uri_extras.join("\n"),
                 cargo_bitbake_ver = env!("CARGO_PKG_VERSION"),
                 )
-        .map_err(|err| {
-            human(format!("unable to write BitBake recipe to disk: {}",
-                                   err.description()))
-        }));
+                 .map_err(|err| {
+                              human(format!("unable to write BitBake recipe to disk: {}",
+                                            err.description()))
+                          }));
 
     println!("Wrote: {}", recipe_path.display());
 

@@ -103,10 +103,15 @@ Options:
 "#;
 
 fn main() {
-    cargo::execute_main_without_stdin(real_main, false, USAGE)
+    let config = Config::default().unwrap();
+    let args = env::args().collect::<Vec<_>>();
+    let result = cargo::call_main_without_stdin(real_main, &config, USAGE, &args, false);
+    if let Err(e) = result {
+        cargo::handle_cli_error(e, &mut *config.shell());
+    }
 }
 
-fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
+fn real_main(options: Options, config: &Config) -> CliResult {
     config.configure(options.flag_verbose,
                      options.flag_quiet,
                      /* color */
@@ -269,5 +274,5 @@ fn real_main(options: Options, config: &Config) -> CliResult<Option<()>> {
 
     println!("Wrote: {}", recipe_path.display());
 
-    Ok(None)
+    Ok(())
 }

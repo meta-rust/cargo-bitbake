@@ -9,7 +9,7 @@ inherit cargo
 # how to get {name} could be as easy as:
 # SRC_URI += "crate://crates.io/{name}/{version}"
 # or
-# SRC_URI += "git://github.com/you/{name};protocol=https"
+# SRC_URI += "{project_src_uri}"
 # SRCREV = "{version}"
 # S = "${{WORKDIR}}/git"
 

@@ -11,6 +11,7 @@ use cargo::core::source::GitReference;
 use cargo::core::resolver::Method;
 use cargo::ops;
 use cargo::util::{human, important_paths, CargoResult};
+use git2::Repository;
 use itertools::Itertools;
 use md5::Context;
 use std::env;
@@ -103,6 +104,17 @@ fn git_to_yocto_git_url(url: String, name: &str) -> String {
             }
         (_, _) => format!("{};name={};destsuffix={}", url, name, name),
     }
+}
+
+/// Attempts to guess at the upstream repo this project can be fetched from
+fn project_git_repo(config: &Config) -> CargoResult<String> {
+    let repo = Repository::discover(config.cwd()).map_err(|e|
+            human(format!("Unable to determine git repo for this project: {}", e)))?;
+
+    let remote = repo.find_remote("origin").map_err(|e|
+            human(format!("Unable to find remote 'origin' for this project: {}", e)))?;
+
+    remote.url().ok_or(human("No URL for remote 'origin'")).map(|s| s.to_owned())
 }
 
 #[derive(RustcDecodable)]
@@ -236,6 +248,12 @@ fn real_main(options: Options, config: &Config) -> CliResult {
     // license data in Yocto fmt
     let license = license.split('/').map(|f| f.trim()).join(" | ");
 
+    // attempt to figure out the git repo for this project
+    let project_src_uri = project_git_repo(config).unwrap_or_else(|e| {
+        println!("{}", e);
+        String::from("")
+    });
+
     // build up the path
     let recipe_path = PathBuf::from(format!("{}_{}.bb", package.name(), package.version()));
 
@@ -261,6 +279,7 @@ fn real_main(options: Options, config: &Config) -> CliResult {
                 lic_files = lic_files,
                 src_uri = src_uris.join(""),
                 src_uri_extras = src_uri_extras.join("\n"),
+                project_src_uri = project_src_uri,
                 cargo_bitbake_ver = env!("CARGO_PKG_VERSION"),
                 )
                  .map_err(|err| {

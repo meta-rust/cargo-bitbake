@@ -126,7 +126,7 @@ fn real_main(options: Options, config: &Config) -> CliResult {
     let package = workspace.current()?;
 
     // Resolve all dependencies (generate or use Cargo.lock as necessary)
-    let mut registry = registry(config, &package)?;
+    let mut registry = registry(config, package)?;
     let resolve = resolve(&mut registry, &workspace)?;
 
     // build the crate URIs
@@ -211,7 +211,7 @@ fn real_main(options: Options, config: &Config) -> CliResult {
     let homepage = metadata.homepage
         .as_ref()
         .cloned()
-        .unwrap_or(metadata.repository
+        .unwrap_or_else(|| metadata.repository
                        .as_ref()
                        .cloned()
                        .unwrap_or_else(|| String::from("")));
@@ -220,7 +220,7 @@ fn real_main(options: Options, config: &Config) -> CliResult {
     let license = metadata.license
         .as_ref()
         .cloned()
-        .unwrap_or(metadata.license_file
+        .unwrap_or_else(|| metadata.license_file
                        .as_ref()
                        .cloned()
                        .unwrap_or_else(|| String::from("unknown")))
@@ -232,7 +232,7 @@ fn real_main(options: Options, config: &Config) -> CliResult {
     let lic_files = metadata.license
         .as_ref()
         .cloned()
-        .unwrap_or(metadata.license_file
+        .unwrap_or_else(|| metadata.license_file
                        .as_ref()
                        .cloned()
                        .unwrap_or_else(|| String::from("unknown")))

@@ -19,6 +19,32 @@ local crate:
 ```
 $ cargo bitbake
 Wrote: cargo-bitbake_0.1.0.bb
+```
+
+## Parameter Mapping
+|  Yocto           |          Cargo              |
+| ---------------- | --------------------------- |
+| SRC_URI          | each line in `dependencies` |
+| SUMMARY          | `package.description` |
+| HOMEPAGE         | `package.homepage` or `package.repository` |
+| LICENSE          | `package.license` or `package.license-file`
+| LIC_FILES_CHKSUM | `package.license` or `package.license-file`. See below |
+
+### LIC_FILES_CHKSUM
+
+`LIC_FILES_CHKSUM` is treated a bit specially. If the user specifies `package.license-file` then the
+filename is taken directly. If `package.license` is specified then it checks for the filename directly
+and falls back to checking `LICENSE-{license}`. If nothing can be found then you are expected to generate
+the md5sum yourself.
+
+The license field supports any valid Cargo value and can be separated by `/` to specify multiple licenses.
+
+## API
+
+API documentation is available at [docs.rs](https://docs.rs/cargo-bitbake/).
+
+## Example output
+```
 $ cat cargo-bitbake_0.1.0.bb
 inherit cargo_util
 
@@ -97,7 +123,3 @@ SUMMARY = "Generates a BitBake recipe for a package utilizing meta-rust's classe
 HOMEPAGE = "https://github.com/cardoe/cargo-bitbake"
 LICENSE = "MIT | Apache-2.0"
 ```
-
-## API
-
-API documentation is available at [docs.rs](https://docs.rs/cargo-bitbake/).

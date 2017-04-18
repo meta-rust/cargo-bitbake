@@ -1,5 +1,6 @@
 extern crate cargo;
 extern crate itertools;
+extern crate git2;
 extern crate md5;
 extern crate rustc_serialize;
 

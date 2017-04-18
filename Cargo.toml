@@ -18,6 +18,7 @@ travis-ci = { repository = "cardoe/cargo-bitbake" }
 
 [dependencies]
 cargo = "^0.17"
+git2 = "^0.6.4"
 itertools = "^0.5.0"
 md5 = "^0.3"
 rustc-serialize = "^0.3"

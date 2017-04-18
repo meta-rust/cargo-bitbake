@@ -202,43 +202,35 @@ fn real_main(options: Options, config: &Config) -> CliResult {
     let metadata = package.manifest().metadata();
 
     // package description is used as BitBake summary
-    let summary = metadata.description
-        .as_ref()
-        .cloned()
-        .unwrap_or_else(|| String::from(package.name()));
+    let summary = metadata.description.as_ref().map_or_else(|| {
+            println!("No package.description set in your Cargo.toml, using package.name");
+            package.name()
+    }, |s| s.trim());
 
     // package homepage (or source code location)
-    let homepage = metadata.homepage
-        .as_ref()
-        .cloned()
-        .unwrap_or_else(|| metadata.repository
-                       .as_ref()
-                       .cloned()
-                       .unwrap_or_else(|| String::from("")));
+    let homepage = metadata.homepage.as_ref().map_or_else(|| {
+        println!("No package.homepage set in your Cargo.toml, trying package.repository");
+        metadata.repository.as_ref().ok_or_else(|| {
+            human("No package.repository set in your Cargo.toml")
+        })
+    }, |s| Ok(s))?.trim();
 
     // package license
-    let license = metadata.license
-        .as_ref()
-        .cloned()
-        .unwrap_or_else(|| metadata.license_file
-                       .as_ref()
-                       .cloned()
-                       .unwrap_or_else(|| String::from("unknown")))
-        .split('/')
-        .map(|s| s.trim())
-        .join(" | ");
+    let license = metadata.license.as_ref().map_or_else(|| {
+        println!("No package.license set in your Cargo.toml, trying package.license_file");
+        metadata.license_file.as_ref().ok_or_else(|| {
+            human("No package.license_file set in your Cargo.toml")
+        })
+    }, |s| Ok(s))?;
 
     // license files for the package
-    let lic_files = metadata.license
-        .as_ref()
-        .cloned()
-        .unwrap_or_else(|| metadata.license_file
-                       .as_ref()
-                       .cloned()
-                       .unwrap_or_else(|| String::from("unknown")))
+    let lic_files = license.clone()
         .split('/')
         .map(license_file)
         .join("");
+
+    // license data in Yocto fmt
+    let license = license.split('/').map(|f| f.trim()).join(" | ");
 
     // build up the path
     let recipe_path = PathBuf::from(format!("{}_{}.bb", package.name(), package.version()));
@@ -259,10 +251,10 @@ fn real_main(options: Options, config: &Config) -> CliResult {
                 include_str!("bitbake.template"),
                 name = package.name(),
                 version = package.version(),
-                summary = summary.trim(),
-                homepage = homepage.trim(),
-                license = license.trim(),
-                lic_files = lic_files.trim(),
+                summary = summary,
+                homepage = homepage,
+                license = license,
+                lic_files = lic_files,
                 src_uri = src_uris.join(""),
                 src_uri_extras = src_uri_extras.join("\n"),
                 cargo_bitbake_ver = env!("CARGO_PKG_VERSION"),

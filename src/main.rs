@@ -84,6 +84,26 @@ fn resolve<'a>(registry: &mut PackageRegistry,
     Ok((packages, resolve))
 }
 
+/// converts a GIT URL to a Yocto GIT URL
+fn git_to_yocto_git_url(url: String, name: &str) -> String {
+    // convert the protocol to one that Yocto understands
+    // https://... -> git://...;protocol=https
+    // ssh://... -> git://...;protocol=ssh
+    // and append metadata necessary for Yocto to generate
+    // data for Cargo to understand
+    match url.split_at(url.find(':').unwrap()) {
+        (proto @ "ssh", rest) |
+            (proto @ "https", rest) => {
+                format!("git{};protocol={};name={};destsuffix={}",
+                        rest,
+                        proto,
+                        name,
+                        name)
+            }
+        (_, _) => format!("{};name={};destsuffix={}", url, name, name),
+    }
+}
+
 #[derive(RustcDecodable)]
 struct Options {
     flag_verbose: u32,
@@ -150,24 +170,7 @@ fn real_main(options: Options, config: &Config) -> CliResult {
                 // we are packaging
                 None
             } else if src_id.is_git() {
-                let url = src_id.url().to_string();
-
-                // covert the protocol to one that Yocto understands
-                // https://... -> git://...;protocol=https
-                // ssh://... -> git://...;protocol=ssh
-                // and append metadata necessary for Yocto to generate
-                // data for Cargo to understand
-                let url = match url.split_at(url.find(':').unwrap()) {
-                    (proto @ "ssh", rest) |
-                    (proto @ "https", rest) => {
-                        format!("git{};protocol={};name={};destsuffix={}",
-                                rest,
-                                proto,
-                                pkg.name(),
-                                pkg.name())
-                    }
-                    (_, _) => format!("{};name={};destsuffix={}", url, pkg.name(), pkg.name()),
-                };
+                let url = git_to_yocto_git_url(src_id.url().to_string(), pkg.name());
 
                 // save revision
                 src_uri_extras.push(format!("SRCREV_FORMAT .= \"_{}\"", pkg.name()));

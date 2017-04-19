@@ -5,12 +5,11 @@ inherit cargo
 # If this is git based prefer versioned ones if they exist
 # DEFAULT_PREFERENCE = "-1"
 
-# how to get {name} could be as easy as:
+# how to get {name} could be as easy as but default to a git checkout:
 # SRC_URI += "crate://crates.io/{name}/{version}"
-# or
-# SRC_URI += "{project_src_uri}"
-# SRCREV = "{version}"
-# S = "${{WORKDIR}}/git"
+SRC_URI += "{project_src_uri}"
+SRCREV = "{version}"
+S = "${{WORKDIR}}/git"
 
 # please note if you have entries that do not begin with crate://
 # you must change them to how that package can be fetched

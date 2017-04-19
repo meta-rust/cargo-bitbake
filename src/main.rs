@@ -1,7 +1,10 @@
 extern crate cargo;
 extern crate itertools;
+#[macro_use]
+extern crate lazy_static;
 extern crate git2;
 extern crate md5;
+extern crate regex;
 extern crate rustc_serialize;
 
 use cargo::{Config, CliResult};

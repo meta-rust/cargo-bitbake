@@ -16,6 +16,7 @@ use cargo::ops;
 use cargo::util::{human, important_paths, CargoResult};
 use itertools::Itertools;
 use md5::Context;
+use std::default::Default;
 use std::env;
 use std::error::Error;
 use std::fs::{File, OpenOptions};
@@ -156,7 +157,7 @@ fn real_main(options: Options, config: &Config) -> CliResult {
                 // we are packaging
                 None
             } else if src_id.is_git() {
-                let url = git::git_to_yocto_git_url(src_id.url().to_string(), Some(pkg.name()));
+                let url = git::git_to_yocto_git_url(src_id.url().as_str(), Some(pkg.name()));
 
                 // save revision
                 src_uri_extras.push(format!("SRCREV_FORMAT .= \"_{}\"", pkg.name()));
@@ -222,10 +223,10 @@ fn real_main(options: Options, config: &Config) -> CliResult {
     let license = license.split('/').map(|f| f.trim()).join(" | ");
 
     // attempt to figure out the git repo for this project
-    let project_src_uri = git::project_git_repo(config).unwrap_or_else(|e| {
-                                                                           println!("{}", e);
-                                                                           String::from("")
-                                                                       });
+    let project_repo = git::ProjectRepo::new(config).unwrap_or_else(|e| {
+                                                                        println!("{}", e);
+                                                                        Default::default()
+                                                                    });
 
     // build up the path
     let recipe_path = PathBuf::from(format!("{}_{}.bb", package.name(), package.version()));
@@ -252,7 +253,7 @@ fn real_main(options: Options, config: &Config) -> CliResult {
                 lic_files = lic_files,
                 src_uri = src_uris.join(""),
                 src_uri_extras = src_uri_extras.join("\n"),
-                project_src_uri = project_src_uri,
+                project_src_uri = project_repo.uri,
                 cargo_bitbake_ver = env!("CARGO_PKG_VERSION"),
                 )
                  .map_err(|err| {

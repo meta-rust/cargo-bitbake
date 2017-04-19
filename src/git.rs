@@ -13,13 +13,13 @@ lazy_static! {
 }
 
 /// converts a GIT URL to a Yocto GIT URL
-pub fn git_to_yocto_git_url(url: String, name: Option<&str>) -> String {
+pub fn git_to_yocto_git_url(url: &str, name: Option<&str>) -> String {
     // check if its a git@github.com:cardoe/cargo-bitbake.git style URL
     // and fix it up if it is
-    let fixed_url = if SSH_STYLE_REMOTE.is_match(&url) {
+    let fixed_url = if SSH_STYLE_REMOTE.is_match(url) {
         format!("ssh://{}", url.replace(":", "/"))
     } else {
-        url
+        url.to_string()
     };
 
 
@@ -42,16 +42,49 @@ pub fn git_to_yocto_git_url(url: String, name: Option<&str>) -> String {
     }
 }
 
-/// Attempts to guess at the upstream repo this project can be fetched from
-pub fn project_git_repo(config: &Config) -> CargoResult<String> {
-    let repo = Repository::discover(config.cwd()).map_err(|e|
-            human(format!("Unable to determine git repo for this project: {}", e)))?;
+#[derive(Debug, Default)]
+pub struct ProjectRepo {
+    pub uri: String,
+    pub branch: String,
+    pub rev: String,
+}
 
-    let remote =
-        repo.find_remote("origin")
-            .map_err(|e| human(format!("Unable to find remote 'origin' for this project: {}", e)))?;
+impl ProjectRepo {
+    /// Attempts to guess at the upstream repo this project can be fetched from
+    pub fn new(config: &Config) -> CargoResult<ProjectRepo> {
+        let repo =
+            Repository::discover(config.cwd()).map_err(|e| {
+                             human(format!("Unable to determine git repo for this project: {}", e))
+                         })?;
 
-    remote.url().ok_or(human("No URL for remote 'origin'")).map(|s| git_to_yocto_git_url(s.to_owned(), None))
+        let remote =
+            repo.find_remote("origin")
+                .map_err(|e| {
+                             human(format!("Unable to find remote 'origin' for this project: {}",
+                                           e))
+                         })?;
+
+        let uri = remote.url().ok_or(human("No URL for remote 'origin'"))?;
+        let uri = git_to_yocto_git_url(uri, None);
+
+        let head = repo.head().map_err(|e| human(format!("Unable to find HEAD: {}", e)))?;
+        let branch = head.shorthand().ok_or(human("Unable resolve HEAD to a branch"))?;
+
+        // if the branch isn't master we need to record
+        let uri = if branch != "master" {
+            format!("{};branch={}", uri, branch)
+        } else {
+            uri
+        };
+
+        let rev = head.target().ok_or(human("Unable to resolve HEAD to a commit"))?;
+
+        Ok(ProjectRepo {
+               uri: uri,
+               branch: branch.to_string(),
+               rev: rev.to_string(),
+           })
+    }
 }
 
 #[cfg(test)]
@@ -60,7 +93,7 @@ mod test {
 
     #[test]
     fn remote_http() {
-        let repo = String::from("http://github.com/rust-lang/cargo.git");
+        let repo = "http://github.com/rust-lang/cargo.git";
         let url = git_to_yocto_git_url(repo, Some("cargo"));
         assert!(url ==
                 "git://github.com/rust-lang/cargo.git;protocol=http;name=cargo;destsuffix=cargo");
@@ -68,7 +101,7 @@ mod test {
 
     #[test]
     fn remote_https() {
-        let repo = String::from("https://github.com/rust-lang/cargo.git");
+        let repo = "https://github.com/rust-lang/cargo.git";
         let url = git_to_yocto_git_url(repo, Some("cargo"));
         assert!(url ==
                 "git://github.com/rust-lang/cargo.git;protocol=https;name=cargo;destsuffix=cargo");
@@ -76,7 +109,7 @@ mod test {
 
     #[test]
     fn remote_ssh() {
-        let repo = String::from("git@github.com:rust-lang/cargo.git");
+        let repo = "git@github.com:rust-lang/cargo.git";
         let url = git_to_yocto_git_url(repo, Some("cargo"));
         assert!(url ==
                 "git://git@github.com/rust-lang/cargo.git;protocol=ssh;name=cargo;destsuffix=cargo");
@@ -84,28 +117,28 @@ mod test {
 
     #[test]
     fn remote_http_nosuffix() {
-        let repo = String::from("http://github.com/rust-lang/cargo.git");
+        let repo = "http://github.com/rust-lang/cargo.git";
         let url = git_to_yocto_git_url(repo, None);
         assert!(url == "git://github.com/rust-lang/cargo.git;protocol=http");
     }
 
     #[test]
     fn remote_https_nosuffix() {
-        let repo = String::from("https://github.com/rust-lang/cargo.git");
+        let repo = "https://github.com/rust-lang/cargo.git";
         let url = git_to_yocto_git_url(repo, None);
         assert!(url == "git://github.com/rust-lang/cargo.git;protocol=https");
     }
 
     #[test]
     fn remote_ssh_nosuffix() {
-        let repo = String::from("git@github.com:rust-lang/cargo.git");
+        let repo = "git@github.com:rust-lang/cargo.git";
         let url = git_to_yocto_git_url(repo, None);
         assert!(url == "git://git@github.com/rust-lang/cargo.git;protocol=ssh");
     }
 
     #[test]
     fn cargo_http() {
-        let repo = String::from("http://github.com/rust-lang/cargo.git");
+        let repo = "http://github.com/rust-lang/cargo.git";
         let url = git_to_yocto_git_url(repo, Some("cargo"));
         assert!(url ==
                 "git://github.com/rust-lang/cargo.git;protocol=http;name=cargo;destsuffix=cargo");
@@ -113,7 +146,7 @@ mod test {
 
     #[test]
     fn cargo_https() {
-        let repo = String::from("https://github.com/rust-lang/cargo.git");
+        let repo = "https://github.com/rust-lang/cargo.git";
         let url = git_to_yocto_git_url(repo, Some("cargo"));
         assert!(url ==
                 "git://github.com/rust-lang/cargo.git;protocol=https;name=cargo;destsuffix=cargo");
@@ -121,7 +154,7 @@ mod test {
 
     #[test]
     fn cargo_ssh() {
-        let repo = String::from("ssh://git@github.com/rust-lang/cargo.git");
+        let repo = "ssh://git@github.com/rust-lang/cargo.git";
         let url = git_to_yocto_git_url(repo, Some("cargo"));
         assert!(url ==
                 "git://git@github.com/rust-lang/cargo.git;protocol=ssh;name=cargo;destsuffix=cargo");

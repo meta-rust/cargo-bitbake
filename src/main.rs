@@ -156,7 +156,7 @@ fn real_main(options: Options, config: &Config) -> CliResult {
                 // we are packaging
                 None
             } else if src_id.is_git() {
-                let url = git::git_to_yocto_git_url(src_id.url().to_string(), pkg.name());
+                let url = git::git_to_yocto_git_url(src_id.url().to_string(), Some(pkg.name()));
 
                 // save revision
                 src_uri_extras.push(format!("SRCREV_FORMAT .= \"_{}\"", pkg.name()));

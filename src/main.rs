@@ -11,7 +11,6 @@ use cargo::core::source::GitReference;
 use cargo::core::resolver::Method;
 use cargo::ops;
 use cargo::util::{human, important_paths, CargoResult};
-use git2::Repository;
 use itertools::Itertools;
 use md5::Context;
 use std::env;
@@ -19,6 +18,8 @@ use std::error::Error;
 use std::fs::{File, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+
+mod git;
 
 const CRATES_IO_URL: &'static str = "crates.io";
 
@@ -84,37 +85,6 @@ fn resolve<'a>(registry: &mut PackageRegistry,
                                              &[])?;
 
     Ok((packages, resolve))
-}
-
-/// converts a GIT URL to a Yocto GIT URL
-fn git_to_yocto_git_url(url: String, name: &str) -> String {
-    // convert the protocol to one that Yocto understands
-    // https://... -> git://...;protocol=https
-    // ssh://... -> git://...;protocol=ssh
-    // and append metadata necessary for Yocto to generate
-    // data for Cargo to understand
-    match url.split_at(url.find(':').unwrap()) {
-        (proto @ "ssh", rest) |
-            (proto @ "https", rest) => {
-                format!("git{};protocol={};name={};destsuffix={}",
-                        rest,
-                        proto,
-                        name,
-                        name)
-            }
-        (_, _) => format!("{};name={};destsuffix={}", url, name, name),
-    }
-}
-
-/// Attempts to guess at the upstream repo this project can be fetched from
-fn project_git_repo(config: &Config) -> CargoResult<String> {
-    let repo = Repository::discover(config.cwd()).map_err(|e|
-            human(format!("Unable to determine git repo for this project: {}", e)))?;
-
-    let remote = repo.find_remote("origin").map_err(|e|
-            human(format!("Unable to find remote 'origin' for this project: {}", e)))?;
-
-    remote.url().ok_or(human("No URL for remote 'origin'")).map(|s| s.to_owned())
 }
 
 #[derive(RustcDecodable)]
@@ -183,7 +153,7 @@ fn real_main(options: Options, config: &Config) -> CliResult {
                 // we are packaging
                 None
             } else if src_id.is_git() {
-                let url = git_to_yocto_git_url(src_id.url().to_string(), pkg.name());
+                let url = git::git_to_yocto_git_url(src_id.url().to_string(), pkg.name());
 
                 // save revision
                 src_uri_extras.push(format!("SRCREV_FORMAT .= \"_{}\"", pkg.name()));
@@ -249,10 +219,10 @@ fn real_main(options: Options, config: &Config) -> CliResult {
     let license = license.split('/').map(|f| f.trim()).join(" | ");
 
     // attempt to figure out the git repo for this project
-    let project_src_uri = project_git_repo(config).unwrap_or_else(|e| {
-        println!("{}", e);
-        String::from("")
-    });
+    let project_src_uri = git::project_git_repo(config).unwrap_or_else(|e| {
+                                                                           println!("{}", e);
+                                                                           String::from("")
+                                                                       });
 
     // build up the path
     let recipe_path = PathBuf::from(format!("{}_{}.bb", package.name(), package.version()));

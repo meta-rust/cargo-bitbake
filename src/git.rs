@@ -30,6 +30,7 @@ pub fn git_to_yocto_git_url(url: String, name: &str) -> String {
     // data for Cargo to understand
     match fixed_url.split_at(fixed_url.find(':').unwrap()) {
         (proto @ "ssh", rest) |
+        (proto @ "http", rest) |
         (proto @ "https", rest) => {
             format!("git{};protocol={};name={};destsuffix={}",
                     rest,
@@ -58,7 +59,6 @@ mod test {
     use super::*;
 
     #[test]
-    #[should_panic]
     fn remote_http() {
         let repo = String::from("http://github.com/rust-lang/cargo.git");
         let url = git_to_yocto_git_url(repo, "cargo");
@@ -83,7 +83,6 @@ mod test {
     }
 
     #[test]
-    #[should_panic]
     fn cargo_http() {
         let repo = String::from("http://github.com/rust-lang/cargo.git");
         let url = git_to_yocto_git_url(repo, "cargo");

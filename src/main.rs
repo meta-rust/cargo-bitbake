@@ -254,6 +254,7 @@ fn real_main(options: Options, config: &Config) -> CliResult {
                 src_uri = src_uris.join(""),
                 src_uri_extras = src_uri_extras.join("\n"),
                 project_src_uri = project_repo.uri,
+                project_src_rev = project_repo.rev,
                 cargo_bitbake_ver = env!("CARGO_PKG_VERSION"),
                 )
                  .map_err(|err| {

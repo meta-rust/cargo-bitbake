@@ -1,16 +1,34 @@
 use cargo::Config;
 use cargo::util::{human, CargoResult};
 use git2::Repository;
+use regex::Regex;
 
+/// basic pattern to match ssh style remote URLs
+/// so that they can be fixed up
+/// git@github.com:cardoe/cargo-bitbake.git should match
+const SSH_STYLE_REMOTE_STR: &'static str = r".*@.*:.*";
+
+lazy_static! {
+    static ref SSH_STYLE_REMOTE: Regex = Regex::new(SSH_STYLE_REMOTE_STR).unwrap();
+}
 
 /// converts a GIT URL to a Yocto GIT URL
 pub fn git_to_yocto_git_url(url: String, name: &str) -> String {
+    // check if its a git@github.com:cardoe/cargo-bitbake.git style URL
+    // and fix it up if it is
+    let fixed_url = if SSH_STYLE_REMOTE.is_match(&url) {
+        format!("ssh://{}", url.replace(":", "/"))
+    } else {
+        url
+    };
+
+
     // convert the protocol to one that Yocto understands
     // https://... -> git://...;protocol=https
     // ssh://... -> git://...;protocol=ssh
     // and append metadata necessary for Yocto to generate
     // data for Cargo to understand
-    match url.split_at(url.find(':').unwrap()) {
+    match fixed_url.split_at(fixed_url.find(':').unwrap()) {
         (proto @ "ssh", rest) |
         (proto @ "https", rest) => {
             format!("git{};protocol={};name={};destsuffix={}",
@@ -19,7 +37,7 @@ pub fn git_to_yocto_git_url(url: String, name: &str) -> String {
                     name,
                     name)
         }
-        (_, _) => format!("{};name={};destsuffix={}", url, name, name),
+        (_, _) => format!("{};name={};destsuffix={}", fixed_url, name, name),
     }
 }
 
@@ -57,12 +75,11 @@ mod test {
     }
 
     #[test]
-    #[should_panic]
     fn remote_ssh() {
         let repo = String::from("git@github.com:rust-lang/cargo.git");
         let url = git_to_yocto_git_url(repo, "cargo");
         assert!(url ==
-                "git://github.com/rust-lang/cargo.git;protocol=ssh;name=cargo;destsuffix=cargo");
+                "git://git@github.com/rust-lang/cargo.git;protocol=ssh;name=cargo;destsuffix=cargo");
     }
 
     #[test]

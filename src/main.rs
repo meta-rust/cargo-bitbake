@@ -56,39 +56,59 @@ fn license_file(license_name: &str) -> String {
     }
 }
 
-/// Finds the root Cargo.toml of the workspace
-fn workspace(config: &Config, manifest_path: Option<String>) -> CargoResult<Workspace> {
-    let root = important_paths::find_root_manifest_for_wd(manifest_path, config.cwd())?;
-    Workspace::new(&root, config)
+/// Represents the package we are trying to generate a recipe for
+struct PackageInfo<'cfg> {
+    cfg: &'cfg Config,
+    current_manifest: PathBuf,
+    ws: Workspace<'cfg>,
 }
 
-/// Generates a package registry by using the Cargo.lock or creating one as necessary
-fn registry<'a>(config: &'a Config, package: &Package) -> CargoResult<PackageRegistry<'a>> {
-    let mut registry = PackageRegistry::new(config)?;
-    registry.add_sources(&[package.package_id().source_id().clone()])?;
-    Ok(registry)
-}
+impl<'cfg> PackageInfo<'cfg> {
+    fn new(config: &Config, manifest_path: Option<String>) -> CargoResult<PackageInfo> {
+        let root = important_paths::find_root_manifest_for_wd(manifest_path, config.cwd())?;
+        let ws = Workspace::new(&root, config)?;
+        Ok(PackageInfo {
+               cfg: config,
+               current_manifest: root,
+               ws: ws,
+           })
+    }
 
-/// Resolve the packages necessary for the workspace
-fn resolve<'a>(registry: &mut PackageRegistry,
-               workspace: &'a Workspace)
-               -> CargoResult<(PackageSet<'a>, Resolve)> {
-    // resolve our dependencies
-    let (packages, resolve) = ops::resolve_ws(workspace)?;
+    /// provides the current package we are working with
+    fn package(&self) -> CargoResult<&Package> {
+        self.ws.current()
+    }
 
-    // resolve with all features set so we ensure we get all of the depends downloaded
-    let resolve = ops::resolve_with_previous(registry,
-                                             workspace,
-                                             /* resolve it all */
-                                             Method::Everything,
-                                             /* previous */
-                                             Some(&resolve),
-                                             /* don't avoid any */
-                                             None,
-                                             /* specs */
-                                             &[])?;
+    /// Generates a package registry by using the Cargo.lock or creating one as necessary
+    fn registry(&self) -> CargoResult<PackageRegistry<'cfg>> {
+        let mut registry = PackageRegistry::new(self.cfg)?;
+        let package = self.package()?;
+        registry.add_sources(&[package.package_id().source_id().clone()])?;
+        Ok(registry)
+    }
 
-    Ok((packages, resolve))
+    /// Resolve the packages necessary for the workspace
+    fn resolve(&self) -> CargoResult<(PackageSet<'cfg>, Resolve)> {
+        // build up our registry
+        let mut registry = self.registry()?;
+
+        // resolve our dependencies
+        let (packages, resolve) = ops::resolve_ws(&self.ws)?;
+
+        // resolve with all features set so we ensure we get all of the depends downloaded
+        let resolve = ops::resolve_with_previous(&mut registry,
+                                                 &self.ws,
+                                                 /* resolve it all */
+                                                 Method::Everything,
+                                                 /* previous */
+                                                 Some(&resolve),
+                                                 /* don't avoid any */
+                                                 None,
+                                                 /* specs */
+                                                 &[])?;
+
+        Ok((packages, resolve))
+    }
 }
 
 #[derive(RustcDecodable)]
@@ -128,13 +148,14 @@ fn real_main(options: Options, config: &Config) -> CliResult {
                      /* locked */
                      false)?;
 
-    // Load the workspace and current package
-    let workspace = workspace(config, None)?;
-    let package = workspace.current()?;
+    // Build up data about the package we are attempting to generate a recipe for
+    let md = PackageInfo::new(config, None)?;
+
+    // Our current package
+    let package = md.package()?;
 
     // Resolve all dependencies (generate or use Cargo.lock as necessary)
-    let mut registry = registry(config, package)?;
-    let resolve = resolve(&mut registry, &workspace)?;
+    let resolve = md.resolve()?;
 
     // build the crate URIs
     let mut src_uri_extras = vec![];

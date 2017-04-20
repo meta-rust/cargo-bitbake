@@ -35,7 +35,7 @@ fn file_md5<P: AsRef<Path>>(license_file: P) -> Result<String, io::Error> {
     Ok(format!("{:x}", context.compute()))
 }
 
-fn license_file(license_name: &str) -> String {
+fn license_file(rel_dir: &Path, license_name: &str) -> String {
     // if the license exists at the top level then
     // return the right URL to it. try to handle the special
     // case license path we support as well
@@ -44,12 +44,16 @@ fn license_file(license_name: &str) -> String {
     let spec_path = Path::new(&special_name);
 
     if lic_path.exists() {
-        let md5sum = file_md5(&license_name).unwrap_or_else(|_| String::from("generateme"));
-        format!("file://{};md5={} \\\n", license_name, md5sum)
+        let md5sum = file_md5(lic_path).unwrap_or_else(|_| String::from("generateme"));
+        format!("file://{};md5={} \\\n",
+                rel_dir.join(lic_path).display(),
+                md5sum)
     } else if spec_path.exists() {
         // the special case
-        let md5sum = file_md5(&special_name).unwrap_or_else(|_| String::from("generateme"));
-        format!("file://{};md5={} \\\n", special_name, md5sum)
+        let md5sum = file_md5(spec_path).unwrap_or_else(|_| String::from("generateme"));
+        format!("file://{};md5={} \\\n",
+                rel_dir.join(spec_path).display(),
+                md5sum)
     } else {
         // fall through
         format!("file://{};md5=generateme \\\n", license_name)
@@ -108,6 +112,19 @@ impl<'cfg> PackageInfo<'cfg> {
                                                  &[])?;
 
         Ok((packages, resolve))
+    }
+
+    /// packages that are part of a workspace are a sub directory from the top level
+    /// which we need to record, this provides us with that relative directory
+    fn rel_dir(&self) -> CargoResult<PathBuf> {
+        // this is the top level of the workspace
+        let root = self.ws.root().to_path_buf();
+        // path where our current package's Cargo.toml lives
+        let cwd = self.current_manifest.parent().unwrap();
+
+        cwd.strip_prefix(&root)
+            .map(|p| p.to_path_buf())
+            .map_err(|e| human(format!("Unable to if Cargo.toml is in a sub directory: {}", e)))
     }
 }
 
@@ -234,11 +251,14 @@ fn real_main(options: Options, config: &Config) -> CliResult {
         })
     }, |s| Ok(s))?;
 
+    // compute the relative directory into the repo our Cargo.toml is at
+    let rel_dir = md.rel_dir().unwrap();
+
     // license files for the package
-    let lic_files = license.clone()
-        .split('/')
-        .map(license_file)
-        .join("");
+    let mut lic_files = vec![];
+    for lic in license.split('/') {
+        lic_files.push(license_file(&rel_dir, lic));
+    }
 
     // license data in Yocto fmt
     let license = license.split('/').map(|f| f.trim()).join(" | ");
@@ -271,7 +291,7 @@ fn real_main(options: Options, config: &Config) -> CliResult {
                 summary = summary,
                 homepage = homepage,
                 license = license,
-                lic_files = lic_files,
+                lic_files = lic_files.join(""),
                 src_uri = src_uris.join(""),
                 src_uri_extras = src_uri_extras.join("\n"),
                 project_src_uri = project_repo.uri,

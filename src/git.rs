@@ -1,6 +1,6 @@
 use cargo::Config;
 use cargo::util::{human, CargoResult};
-use git2::Repository;
+use git2::{self, Repository};
 use regex::Regex;
 
 /// basic pattern to match ssh style remote URLs
@@ -47,6 +47,7 @@ pub struct ProjectRepo {
     pub uri: String,
     pub branch: String,
     pub rev: String,
+    pub tag: bool,
 }
 
 impl ProjectRepo {
@@ -83,7 +84,25 @@ impl ProjectRepo {
                uri: uri,
                branch: branch.to_string(),
                rev: rev.to_string(),
+               tag: Self::rev_is_tag(&repo, &rev),
            })
+    }
+
+    /// attempts to determine if the specific revision is a tag
+    fn rev_is_tag(repo: &git2::Repository, rev: &git2::Oid) -> bool {
+        // gather up all the tags, if there are none then its not a tag
+        let tags = match repo.tag_names(None) {
+            Ok(t) => t,
+            Err(_) => return false,
+        };
+
+        // walk through all the tags and resolve them to their commitish
+        // return true if we find a tag that matches our revision
+        tags.iter()
+            .filter_map(|tag| tag)
+            .filter_map(|tag| repo.revparse_single(tag).ok())
+            .filter_map(|tag| tag.peel(git2::ObjectType::Commit).ok())
+            .any(|t| t.id() == *rev)
     }
 }
 

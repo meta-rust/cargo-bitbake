@@ -269,6 +269,18 @@ fn real_main(options: Options, config: &Config) -> CliResult {
                                                                         Default::default()
                                                                     });
 
+    // if this is not a tag we need to include some data about the version in PV so that
+    // the sstate cache remains valid
+    let git_srcpv = if project_repo.tag && project_repo.rev.len() > 10 {
+        // its a tag so nothing needed
+        "".into()
+    } else {
+        // we should be using ${SRCPV} here but due to a bitbake bug we cannot. see:
+        // https://github.com/meta-rust/meta-rust/issues/136
+        format!("PV_append = \".AUTOINC+{}\"",
+                project_repo.rev.split_at(10).0)
+    };
+
     // build up the path
     let recipe_path = PathBuf::from(format!("{}_{}.bb", package.name(), package.version()));
 
@@ -297,6 +309,7 @@ fn real_main(options: Options, config: &Config) -> CliResult {
                 project_rel_dir = rel_dir.display(),
                 project_src_uri = project_repo.uri,
                 project_src_rev = project_repo.rev,
+                git_srcpv = git_srcpv,
                 cargo_bitbake_ver = env!("CARGO_PKG_VERSION"),
                 )
                  .map_err(|err| {

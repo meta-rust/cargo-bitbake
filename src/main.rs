@@ -154,7 +154,7 @@ fn main() {
     let args = env::args().collect::<Vec<_>>();
     let result = cargo::call_main_without_stdin(real_main, &config, USAGE, &args, false);
     if let Err(e) = result {
-        cargo::handle_cli_error(e, &mut *config.shell());
+        cargo::exit_with_error(e, &mut *config.shell());
     }
 }
 

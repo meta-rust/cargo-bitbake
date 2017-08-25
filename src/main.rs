@@ -208,7 +208,7 @@ fn real_main(options: Options, config: &Config) -> CliResult {
                     GitReference::Rev(ref s) => s.to_owned(),
                     GitReference::Branch(ref s) => {
                         if s == "master" {
-                            String::from("${{AUTOREV}}")
+                            String::from("${AUTOREV}")
                         } else {
                             s.to_owned()
                         }

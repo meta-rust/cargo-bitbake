@@ -27,6 +27,7 @@ mod git;
 
 const CRATES_IO_URL: &'static str = "crates.io";
 
+/// For a given file at path `license_file`, generate the MD5 sum
 fn file_md5<P: AsRef<Path>>(license_file: P) -> Result<String, io::Error> {
     let mut file = try!(File::open(license_file));
     let mut context = Context::new();
@@ -35,6 +36,8 @@ fn file_md5<P: AsRef<Path>>(license_file: P) -> Result<String, io::Error> {
     Ok(format!("{:x}", context.compute()))
 }
 
+/// Given the top level of the crate at `crate_root`, attempt to find
+/// the license file based on the name of the license in `license_name`.
 fn license_file(crate_root: &Path, rel_dir: &Path, license_name: &str) -> String {
     // if the license exists at the top level then
     // return the right URL to it. try to handle the special
@@ -71,6 +74,8 @@ struct PackageInfo<'cfg> {
 }
 
 impl<'cfg> PackageInfo<'cfg> {
+    /// creates our package info from the config and the manifest_path,
+    /// which may not be provided
     fn new(config: &Config, manifest_path: Option<String>) -> CargoResult<PackageInfo> {
         let root = important_paths::find_root_manifest_for_wd(manifest_path, config.cwd())?;
         let ws = Workspace::new(&root, config)?;
@@ -86,7 +91,8 @@ impl<'cfg> PackageInfo<'cfg> {
         self.ws.current()
     }
 
-    /// Generates a package registry by using the Cargo.lock or creating one as necessary
+    /// Generates a package registry by using the Cargo.lock or
+    /// creating one as necessary
     fn registry(&self) -> CargoResult<PackageRegistry<'cfg>> {
         let mut registry = PackageRegistry::new(self.cfg)?;
         let package = self.package()?;
@@ -117,8 +123,9 @@ impl<'cfg> PackageInfo<'cfg> {
         Ok((packages, resolve))
     }
 
-    /// packages that are part of a workspace are a sub directory from the top level
-    /// which we need to record, this provides us with that relative directory
+    /// packages that are part of a workspace are a sub directory from the
+    /// top level which we need to record, this provides us with that
+    /// relative directory
     fn rel_dir(&self) -> CargoResult<PathBuf> {
         // this is the top level of the workspace
         let root = self.ws.root().to_path_buf();
@@ -131,6 +138,7 @@ impl<'cfg> PackageInfo<'cfg> {
     }
 }
 
+/// command line options for this command
 #[derive(RustcDecodable)]
 struct Options {
     flag_verbose: u32,

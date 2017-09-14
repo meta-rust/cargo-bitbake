@@ -5,7 +5,7 @@ rust:
 - nightly
 - beta
 - stable
-- 1.15.1 # minimum supported version
+- 1.17.0 # minimum supported version (because of unicode-bidi silliness)
 matrix:
   allow_failures:
   - rust: nightly

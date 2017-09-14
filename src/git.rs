@@ -71,11 +71,11 @@ impl ProjectRepo {
         let head = repo.head().map_err(|e| human(format!("Unable to find HEAD: {}", e)))?;
         let branch = head.shorthand().ok_or(human("Unable resolve HEAD to a branch"))?;
 
-        // if the branch isn't master we need to record
-        let uri = if branch != "master" {
-            format!("{};branch={}", uri, branch)
-        } else {
+        // if the branch is master or HEAD we don't want it
+        let uri = if branch == "master" || branch == "HEAD" {
             uri
+        } else {
+            format!("{};branch={}", uri, branch)
         };
 
         let rev = head.target().ok_or(human("Unable to resolve HEAD to a commit"))?;

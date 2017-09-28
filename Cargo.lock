@@ -1,6 +1,6 @@
 [root]
 name = "cargo-bitbake"
-version = "0.3.8-pre"
+version = "0.3.8"
 dependencies = [
  "cargo 0.19.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "git2 0.6.6 (registry+https://github.com/rust-lang/crates.io-index)",

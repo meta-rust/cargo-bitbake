@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io;
 use std::path::Path;
 
-const CLOSED_LICENSE: &'static str = "CLOSED";
+pub const CLOSED_LICENSE: &'static str = "CLOSED";
 
 /// For a given file at path `license_file`, generate the MD5 sum
 fn file_md5<P: AsRef<Path>>(license_file: P) -> Result<String, io::Error> {

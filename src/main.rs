@@ -219,10 +219,12 @@ fn real_main(options: Options, config: &Config) -> CliResult {
     // package license
     let license = metadata.license.as_ref().map_or_else(|| {
         println!("No package.license set in your Cargo.toml, trying package.license_file");
-        metadata.license_file.as_ref().ok_or_else(|| {
-            human("No package.license_file set in your Cargo.toml")
-        })
-    }, |s| Ok(s))?;
+        metadata.license_file.as_ref().map_or_else(|| {
+            println!("No package.license_file set in your Cargo.toml");
+            println!("Assuming {} license", license::CLOSED_LICENSE);
+            license::CLOSED_LICENSE
+        }, |s| s.as_str())
+    }, |s| s.as_str());
 
     // compute the relative directory into the repo our Cargo.toml is at
     let rel_dir = md.rel_dir().unwrap();

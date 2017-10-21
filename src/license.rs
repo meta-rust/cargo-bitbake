@@ -4,6 +4,8 @@ use std::fs::File;
 use std::io;
 use std::path::Path;
 
+const CLOSED_LICENSE: &'static str = "CLOSED";
+
 /// For a given file at path `license_file`, generate the MD5 sum
 fn file_md5<P: AsRef<Path>>(license_file: P) -> Result<String, io::Error> {
     let mut file = try!(File::open(license_file));
@@ -16,6 +18,14 @@ fn file_md5<P: AsRef<Path>>(license_file: P) -> Result<String, io::Error> {
 /// Given the top level of the crate at `crate_root`, attempt to find
 /// the license file based on the name of the license in `license_name`.
 pub fn file(crate_root: &Path, rel_dir: &Path, license_name: &str) -> String {
+    // CLOSED is a special case license (case sensitive) per
+    // http://www.yoctoproject.org/docs/2.3.2/mega-manual/mega-manual.html#sdk-license-detection
+    // that means this is closed source and there is no license
+    // under which this is released. So special case it
+    if license_name == CLOSED_LICENSE {
+        return "".into();
+    }
+
     // if the license exists at the top level then
     // return the right URL to it. try to handle the special
     // case license path we support as well

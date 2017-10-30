@@ -5,7 +5,8 @@ extern crate lazy_static;
 extern crate git2;
 extern crate md5;
 extern crate regex;
-extern crate rustc_serialize;
+#[macro_use]
+extern crate serde_derive;
 
 use cargo::{Config, CliResult};
 use cargo::core::{Package, PackageSet, Resolve, Workspace};
@@ -13,11 +14,10 @@ use cargo::core::registry::PackageRegistry;
 use cargo::core::source::GitReference;
 use cargo::core::resolver::Method;
 use cargo::ops;
-use cargo::util::{human, important_paths, CargoResult};
+use cargo::util::{important_paths, CargoError, CargoResult, CargoResultExt};
 use itertools::Itertools;
 use std::default::Default;
 use std::env;
-use std::error::Error;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::PathBuf;
@@ -96,12 +96,12 @@ impl<'cfg> PackageInfo<'cfg> {
 
         cwd.strip_prefix(&root)
             .map(|p| p.to_path_buf())
-            .map_err(|e| human(format!("Unable to if Cargo.toml is in a sub directory: {}", e)))
+            .chain_err(|| "Unable to if Cargo.toml is in a sub directory")
     }
 }
 
 /// command line options for this command
-#[derive(RustcDecodable)]
+#[derive(Deserialize)]
 struct Options {
     flag_verbose: u32,
     flag_quiet: Option<bool>,
@@ -227,7 +227,7 @@ fn real_main(options: Options, config: &Config) -> CliResult {
                 metadata
                     .repository
                     .as_ref()
-                    .ok_or_else(|| human("No package.repository set in your Cargo.toml"))
+                    .ok_or_else(|| CargoError::from("No package.repository set in your Cargo.toml"))
             },
             |s| Ok(s),
         )?
@@ -255,7 +255,7 @@ fn real_main(options: Options, config: &Config) -> CliResult {
     // license files for the package
     let mut lic_files = vec![];
     for lic in license.split('/') {
-        lic_files.push(license::file(&crate_root, &rel_dir, lic));
+        lic_files.push(license::file(crate_root, &rel_dir, lic));
     }
 
     // license data in Yocto fmt
@@ -288,10 +288,7 @@ fn real_main(options: Options, config: &Config) -> CliResult {
                             .create(true)
                             .truncate(true)
                             .open(&recipe_path)
-                            .map_err(|err| {
-                                         human(format!("failed to create BitBake recipe: {}",
-                                                       err.description()))
-                                     }));
+                            .chain_err(|| "failed to create BitBake recipe"));
 
     // write the contents out
     try!(write!(file,
@@ -309,10 +306,7 @@ fn real_main(options: Options, config: &Config) -> CliResult {
                 project_src_rev = project_repo.rev,
                 git_srcpv = git_srcpv,
                 cargo_bitbake_ver = env!("CARGO_PKG_VERSION"),
-                ).map_err(|err| {
-                          human(format!("unable to write BitBake recipe to disk: {}",
-                                        err.description()))
-                      }));
+                ).chain_err(|| "unable to write BitBake recipe to disk"));
 
     println!("Wrote: {}", recipe_path.display());
 

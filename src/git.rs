@@ -1,5 +1,5 @@
 use cargo::Config;
-use cargo::util::{human, CargoResult};
+use cargo::util::{CargoResult, CargoResultExt};
 use git2::{self, Repository};
 use regex::Regex;
 
@@ -53,25 +53,17 @@ pub struct ProjectRepo {
 impl ProjectRepo {
     /// Attempts to guess at the upstream repo this project can be fetched from
     pub fn new(config: &Config) -> CargoResult<ProjectRepo> {
-        let repo =
-            Repository::discover(config.cwd()).map_err(|e| {
-                             human(format!("Unable to determine git repo for this project: {}", e))
-                         })?;
+        let repo = Repository::discover(config.cwd())
+            .chain_err(|| "Unable to determine git repo for this project")?;
 
-        let remote =
-            repo.find_remote("origin")
-                .map_err(|e| {
-                             human(format!("Unable to find remote 'origin' for this project: {}",
-                                           e))
-                         })?;
+        let remote = repo.find_remote("origin")
+            .chain_err(|| "Unable to find remote 'origin' for this project")?;
 
-        let uri = remote.url().ok_or(human("No URL for remote 'origin'"))?;
+        let uri = remote.url().ok_or("No URL for remote 'origin'")?;
         let uri = git_to_yocto_git_url(uri, None);
 
-        let head = repo.head()
-            .map_err(|e| human(format!("Unable to find HEAD: {}", e)))?;
-        let branch = head.shorthand()
-            .ok_or(human("Unable resolve HEAD to a branch"))?;
+        let head = repo.head().chain_err(|| "Unable to find HEAD")?;
+        let branch = head.shorthand().ok_or("Unable resolve HEAD to a branch")?;
 
         // if the branch is master or HEAD we don't want it
         let uri = if branch == "master" || branch == "HEAD" {
@@ -80,8 +72,7 @@ impl ProjectRepo {
             format!("{};branch={}", uri, branch)
         };
 
-        let rev = head.target()
-            .ok_or(human("Unable to resolve HEAD to a commit"))?;
+        let rev = head.target().ok_or("Unable to resolve HEAD to a commit")?;
 
         Ok(ProjectRepo {
                uri: uri,

@@ -1,7 +1,7 @@
 [package]
 authors = ["Doug Goldstein <cardoe@cardoe.com>"]
 categories = ["command-line-utilities"]
-description = "Generates a BitBake recipe for a package utilizing meta-rust's classes.\n"
+description = "Generates a BitBake recipe for a package utilizing meta-rust's classes."
 documentation = "https://github.com/cardoe/cargo-bitbake"
 homepage = "https://github.com/cardoe/cargo-bitbake"
 keywords = ["cargo-subcommand", "bitbake", "yocto", "recipe"]

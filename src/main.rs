@@ -57,7 +57,8 @@ impl<'cfg> PackageInfo<'cfg> {
     fn registry(&self) -> CargoResult<PackageRegistry<'cfg>> {
         let mut registry = PackageRegistry::new(self.cfg)?;
         let package = self.package()?;
-        registry.add_sources(&[package.package_id().source_id().clone()])?;
+        registry
+            .add_sources(&[package.package_id().source_id().clone()])?;
         Ok(registry)
     }
 
@@ -128,28 +129,33 @@ fn main() {
 }
 
 fn real_main(options: Options, config: &Config) -> CliResult {
-    config.configure(options.flag_verbose,
-                     options.flag_quiet,
-                     /* color */
-                     &None,
-                     /* frozen */
-                     false,
-                     /* locked */
-                     false)?;
+    config
+        .configure(options.flag_verbose,
+                   options.flag_quiet,
+                   /* color */
+                   &None,
+                   /* frozen */
+                   false,
+                   /* locked */
+                   false)?;
 
     // Build up data about the package we are attempting to generate a recipe for
     let md = PackageInfo::new(config, None)?;
 
     // Our current package
     let package = md.package()?;
-    let crate_root = package.manifest_path().parent().expect("Cargo.toml must have a parent");
+    let crate_root = package
+        .manifest_path()
+        .parent()
+        .expect("Cargo.toml must have a parent");
 
     // Resolve all dependencies (generate or use Cargo.lock as necessary)
     let resolve = md.resolve()?;
 
     // build the crate URIs
     let mut src_uri_extras = vec![];
-    let mut src_uris = resolve.1
+    let mut src_uris = resolve
+        .1
         .iter()
         .filter_map(|pkg| {
             // get the source info for this package
@@ -186,8 +192,8 @@ fn real_main(options: Options, config: &Config) -> CliResult {
 
                 src_uri_extras.push(format!("SRCREV_{} = \"{}\"", pkg.name(), rev));
                 // instruct Cargo where to find this
-                src_uri_extras.push(format!("EXTRA_OECARGO_PATHS += \"${{WORKDIR}}/{}\"",
-                                            pkg.name()));
+                src_uri_extras
+                    .push(format!("EXTRA_OECARGO_PATHS += \"${{WORKDIR}}/{}\"", pkg.name()));
 
                 Some(url)
             } else {
@@ -203,28 +209,45 @@ fn real_main(options: Options, config: &Config) -> CliResult {
     let metadata = package.manifest().metadata();
 
     // package description is used as BitBake summary
-    let summary = metadata.description.as_ref().map_or_else(|| {
+    let summary = metadata.description.as_ref().map_or_else(
+        || {
             println!("No package.description set in your Cargo.toml, using package.name");
             package.name()
-    }, |s| s.trim());
+        },
+        |s| s.trim(),
+    );
 
     // package homepage (or source code location)
-    let homepage = metadata.homepage.as_ref().map_or_else(|| {
-        println!("No package.homepage set in your Cargo.toml, trying package.repository");
-        metadata.repository.as_ref().ok_or_else(|| {
-            human("No package.repository set in your Cargo.toml")
-        })
-    }, |s| Ok(s))?.trim();
+    let homepage = metadata
+        .homepage
+        .as_ref()
+        .map_or_else(
+            || {
+                println!("No package.homepage set in your Cargo.toml, trying package.repository");
+                metadata
+                    .repository
+                    .as_ref()
+                    .ok_or_else(|| human("No package.repository set in your Cargo.toml"))
+            },
+            |s| Ok(s),
+        )?
+        .trim();
 
     // package license
-    let license = metadata.license.as_ref().map_or_else(|| {
-        println!("No package.license set in your Cargo.toml, trying package.license_file");
-        metadata.license_file.as_ref().map_or_else(|| {
-            println!("No package.license_file set in your Cargo.toml");
-            println!("Assuming {} license", license::CLOSED_LICENSE);
-            license::CLOSED_LICENSE
-        }, |s| s.as_str())
-    }, |s| s.as_str());
+    let license = metadata.license.as_ref().map_or_else(
+        || {
+            println!("No package.license set in your Cargo.toml, trying package.license_file");
+            metadata.license_file.as_ref().map_or_else(
+                || {
+                    println!("No package.license_file set in your Cargo.toml");
+                    println!("Assuming {} license", license::CLOSED_LICENSE);
+                    license::CLOSED_LICENSE
+                },
+                |s| s.as_str(),
+            )
+        },
+        |s| s.as_str(),
+    );
 
     // compute the relative directory into the repo our Cargo.toml is at
     let rel_dir = md.rel_dir().unwrap();
@@ -286,11 +309,10 @@ fn real_main(options: Options, config: &Config) -> CliResult {
                 project_src_rev = project_repo.rev,
                 git_srcpv = git_srcpv,
                 cargo_bitbake_ver = env!("CARGO_PKG_VERSION"),
-                )
-                 .map_err(|err| {
-                              human(format!("unable to write BitBake recipe to disk: {}",
-                                            err.description()))
-                          }));
+                ).map_err(|err| {
+                          human(format!("unable to write BitBake recipe to disk: {}",
+                                        err.description()))
+                      }));
 
     println!("Wrote: {}", recipe_path.display());
 

@@ -68,8 +68,10 @@ impl ProjectRepo {
         let uri = remote.url().ok_or(human("No URL for remote 'origin'"))?;
         let uri = git_to_yocto_git_url(uri, None);
 
-        let head = repo.head().map_err(|e| human(format!("Unable to find HEAD: {}", e)))?;
-        let branch = head.shorthand().ok_or(human("Unable resolve HEAD to a branch"))?;
+        let head = repo.head()
+            .map_err(|e| human(format!("Unable to find HEAD: {}", e)))?;
+        let branch = head.shorthand()
+            .ok_or(human("Unable resolve HEAD to a branch"))?;
 
         // if the branch is master or HEAD we don't want it
         let uri = if branch == "master" || branch == "HEAD" {
@@ -78,7 +80,8 @@ impl ProjectRepo {
             format!("{};branch={}", uri, branch)
         };
 
-        let rev = head.target().ok_or(human("Unable to resolve HEAD to a commit"))?;
+        let rev = head.target()
+            .ok_or(human("Unable to resolve HEAD to a commit"))?;
 
         Ok(ProjectRepo {
                uri: uri,

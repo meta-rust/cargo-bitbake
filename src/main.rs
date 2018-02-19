@@ -90,7 +90,9 @@ impl<'cfg> PackageInfo<'cfg> {
                                                  /* don't avoid any */
                                                  None,
                                                  /* specs */
-                                                 &[])?;
+                                                 &[],
+                                                 /* warn? */
+                                                 true)?;
 
         Ok((packages, resolve))
     }
@@ -130,15 +132,15 @@ Options:
 "#;
 
 fn main() {
-    let config = Config::default().unwrap();
+    let mut config = Config::default().unwrap();
     let args = env::args().collect::<Vec<_>>();
-    let result = cargo::call_main_without_stdin(real_main, &config, USAGE, &args, false);
+    let result = cargo::call_main_without_stdin(real_main, &mut config, USAGE, &args, false);
     if let Err(e) = result {
         cargo::exit_with_error(e, &mut *config.shell());
     }
 }
 
-fn real_main(options: Options, config: &Config) -> CliResult {
+fn real_main(options: Options, config: &mut Config) -> CliResult {
     config
         .configure(options.flag_verbose,
                    options.flag_quiet,
@@ -147,7 +149,9 @@ fn real_main(options: Options, config: &Config) -> CliResult {
                    /* frozen */
                    false,
                    /* locked */
-                   false)?;
+                   false,
+                   /* unstable flags */
+                   &[])?;
 
     // Build up data about the package we are attempting to generate a recipe for
     let md = PackageInfo::new(config, None)?;

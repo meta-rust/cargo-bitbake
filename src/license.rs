@@ -50,9 +50,11 @@ pub fn file(crate_root: &Path, rel_dir: &Path,
 
     if lic_abs_path.exists() {
         let md5sum = file_md5(lic_abs_path).unwrap_or_else(|_| String::from("generateme"));
-        format!("file://{};md5={} \\\n",
-                rel_dir.join(lic_path).display(),
-                md5sum)
+        format!(
+            "file://{};md5={} \\\n",
+            rel_dir.join(lic_path).display(),
+            md5sum
+        )
     } else if spec_abs_path.exists() {
         // the special case
         let md5sum = file_md5(spec_abs_path).unwrap_or_else(|_| String::from("generateme"));

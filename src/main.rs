@@ -29,6 +29,7 @@ use cargo::ops;
 use cargo::util::{important_paths, CargoResult, CargoResultExt};
 use cargo::{CliError, CliResult, Config};
 use docopt::Docopt;
+use failure::{err_msg, format_err};
 use itertools::Itertools;
 use serde::de::DeserializeOwned;
 use std::default::Default;
@@ -109,13 +110,19 @@ impl<'cfg> PackageInfo<'cfg> {
     /// packages that are part of a workspace are a sub directory from the
     /// top level which we need to record, this provides us with that
     /// relative directory
-    fn rel_dir(&self) -> PathBuf {
+    fn rel_dir(&self) -> CargoResult<PathBuf> {
         // this is the top level of the workspace
         let root = self.ws.root().to_path_buf();
         // path where our current package's Cargo.toml lives
-        let cwd = self.current_manifest.parent().unwrap();
+        let cwd = self.current_manifest.parent().ok_or(format_err!(
+            "Could not get parent of directory '{}'",
+            self.current_manifest.display()
+        ))?;
 
-        cwd.strip_prefix(&root).map(|p| p.to_path_buf()).unwrap()
+        Ok(cwd
+            .strip_prefix(&root)
+            .map(|p| p.to_path_buf())
+            .chain_err(|| err_msg("Unable to if Cargo.toml is in a sub directory"))?)
     }
 }
 
@@ -211,7 +218,7 @@ fn real_main(options: Options, config: &mut Config) -> CliResult {
 
                 // save revision
                 src_uri_extras.push(format!("SRCREV_FORMAT .= \"_{}\"", pkg.name()));
-                let rev = match *src_id.git_reference().unwrap() {
+                let rev = match *src_id.git_reference()? {
                     GitReference::Tag(ref s) | GitReference::Rev(ref s) => s.to_owned(),
                     GitReference::Branch(ref s) => {
                         if s == "master" {
@@ -251,7 +258,6 @@ fn real_main(options: Options, config: &mut Config) -> CliResult {
         |s| cargo::core::InternedString::new(s.trim()),
     );
 
-    let default_homepage = "".to_owned();
     // package homepage (or source code location)
     let homepage = metadata
         .homepage
@@ -262,11 +268,10 @@ fn real_main(options: Options, config: &mut Config) -> CliResult {
                 metadata
                     .repository
                     .as_ref()
-                    .ok_or_else(|| "No package.repository set in your Cargo.toml")
+                    .ok_or_else(|| err_msg("No package.repository set in your Cargo.toml"))
             },
             |s| Ok(s),
-        )
-        .unwrap_or(&default_homepage)
+        )?
         .trim();
 
     // package license
@@ -286,7 +291,7 @@ fn real_main(options: Options, config: &mut Config) -> CliResult {
     );
 
     // compute the relative directory into the repo our Cargo.toml is at
-    let rel_dir = md.rel_dir();
+    let rel_dir = md.rel_dir()?;
 
     // license files for the package
     let mut lic_files = vec![];
@@ -329,7 +334,8 @@ fn real_main(options: Options, config: &mut Config) -> CliResult {
         .create(true)
         .truncate(true)
         .open(&recipe_path)
-        .unwrap();
+        // CliResult accepts only failure::Error, not failure::Context
+        .map_err(|e| format_err!("Unable to open bitbake recipe file with: {}", e))?;
 
     // write the contents out
     write!(
@@ -349,7 +355,7 @@ fn real_main(options: Options, config: &mut Config) -> CliResult {
         git_srcpv = git_srcpv,
         cargo_bitbake_ver = env!("CARGO_PKG_VERSION"),
     )
-    .unwrap();
+    .map_err(|e| format_err!("Unable to write to bitbake recipe file with: {}", e))?;
 
     println!("Wrote: {}", recipe_path.display());
 
@@ -364,7 +370,7 @@ pub fn call_main_without_stdin<Flags: DeserializeOwned>(
     options_first: bool,
 ) -> CliResult {
     let docopt = Docopt::new(usage)
-        .unwrap()
+        .map_err(|e| format_err!("Could not parse usage with: {}", e))?
         .options_first(options_first)
         .argv(args.iter().map(|s| &s[..]))
         .help(true);

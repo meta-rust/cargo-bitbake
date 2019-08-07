@@ -10,6 +10,7 @@
 
 use cargo::util::{CargoResult, CargoResultExt};
 use cargo::Config;
+use failure::err_msg;
 use git2::{self, Repository};
 use regex::Regex;
 use std::default::Default;
@@ -108,11 +109,13 @@ impl ProjectRepo {
             GitPrefix::GitSubmodule
         };
 
-        let uri = remote.url().unwrap();
+        let uri = remote.url().ok_or(err_msg("No URL for remote 'origin'"))?;
         let uri = git_to_yocto_git_url(uri, None, prefix);
 
         let head = repo.head().chain_err(|| "Unable to find HEAD")?;
-        let branch = head.shorthand().unwrap();
+        let branch = head
+            .shorthand()
+            .ok_or(err_msg("Unable resolve HEAD to a branch"))?;
 
         // if the branch is master or HEAD we don't want it
         let uri = if branch == "master" || branch == "HEAD" {
@@ -121,7 +124,9 @@ impl ProjectRepo {
             format!("{};branch={}", uri, branch)
         };
 
-        let rev = head.target().unwrap();
+        let rev = head
+            .target()
+            .ok_or(err_msg("Unable to resolve HEAD to a commit"))?;
 
         Ok(ProjectRepo {
             uri: uri,

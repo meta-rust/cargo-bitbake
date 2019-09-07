@@ -10,7 +10,7 @@ inherit cargo
 SRC_URI += "{project_src_uri}"
 SRCREV = "{project_src_rev}"
 S = "${{WORKDIR}}/git"
-CARGO_SRC_DIR="{project_rel_dir}"
+CARGO_SRC_DIR = "{project_rel_dir}"
 {git_srcpv}
 
 # please note if you have entries that do not begin with crate://
@@ -21,7 +21,7 @@ SRC_URI += " \
 {src_uri_extras}
 
 # FIXME: update generateme with the real MD5 of the license file
-LIC_FILES_CHKSUM=" \
+LIC_FILES_CHKSUM = " \
 {lic_files}"
 
 SUMMARY = "{summary}"

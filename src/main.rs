@@ -178,7 +178,7 @@ fn real_main(options: Options, config: &mut Config) -> CliResult {
                 None
             } else if src_id.is_registry() {
                 // this package appears in a crate registry
-                Some(format!("crate://{}/{}/{} \\\n",
+                Some(format!("    crate://{}/{}/{} \\\n",
                              CRATES_IO_URL,
                              pkg.name(),
                              pkg.version()))
@@ -212,9 +212,9 @@ fn real_main(options: Options, config: &mut Config) -> CliResult {
                 src_uri_extras
                     .push(format!("EXTRA_OECARGO_PATHS += \"${{WORKDIR}}/{}\"", pkg.name()));
 
-                Some(url)
+                Some(format!("    {} \\\n", url))
             } else {
-                Some(format!("{} \\\n", src_id.url().to_string()))
+                Some(format!("    {} \\\n", src_id.url().to_string()))
             }
         })
         .collect::<Vec<String>>();
@@ -271,8 +271,11 @@ fn real_main(options: Options, config: &mut Config) -> CliResult {
 
     // license files for the package
     let mut lic_files = vec![];
-    for lic in license.split('/') {
-        lic_files.push(license::file(crate_root, &rel_dir, lic));
+    let licenses: Vec<&str> = license.split('/').collect();
+    let single_license = licenses.len() == 1;
+    for lic in licenses {
+        lic_files.push(format!("    {}", license::file(crate_root, &rel_dir, lic,
+                                                       single_license)));
     }
 
     // license data in Yocto fmt

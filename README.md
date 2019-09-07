@@ -41,7 +41,7 @@ The license field supports any valid Cargo value and can be separated by `/` to 
 
 ## API
 
-API documentation is available at [docs.rs](https://docs.rs/cargo-bitbake/).
+API documentation is available at [docs.rs](https://docs.rs/crate/cargo-bitbake/).
 
 ## Example output
 ```

@@ -5,7 +5,7 @@ rust:
 - nightly
 - beta
 - stable
-- 1.32.0 # minimum supported version (because of rand)
+- 1.34.0 # minimum supported version (because of TryFrom)
 matrix:
   allow_failures:
   - rust: nightly

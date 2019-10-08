@@ -17,15 +17,21 @@ extern crate md5;
 extern crate regex;
 #[macro_use]
 extern crate serde_derive;
+extern crate docopt;
+extern crate failure;
+extern crate serde;
 
-use cargo::{Config, CliResult};
-use cargo::core::{Package, PackageSet, Resolve, Workspace};
 use cargo::core::registry::PackageRegistry;
-use cargo::core::source::GitReference;
 use cargo::core::resolver::Method;
+use cargo::core::source::GitReference;
+use cargo::core::{Package, PackageSet, Resolve, Workspace};
 use cargo::ops;
-use cargo::util::{important_paths, CargoError, CargoResult, CargoResultExt};
+use cargo::util::{important_paths, CargoResult, CargoResultExt};
+use cargo::{CliError, CliResult, Config};
+use docopt::Docopt;
+use failure::{err_msg, format_err};
 use itertools::Itertools;
+use serde::de::DeserializeOwned;
 use std::default::Default;
 use std::env;
 use std::fs::OpenOptions;
@@ -48,13 +54,16 @@ impl<'cfg> PackageInfo<'cfg> {
     /// creates our package info from the config and the manifest_path,
     /// which may not be provided
     fn new(config: &Config, manifest_path: Option<String>) -> CargoResult<PackageInfo> {
-        let root = important_paths::find_root_manifest_for_wd(manifest_path, config.cwd())?;
+        let manifest_path = manifest_path
+            .map(|p| PathBuf::from(p))
+            .unwrap_or(config.cwd().to_path_buf());
+        let root = important_paths::find_root_manifest_for_wd(&manifest_path)?;
         let ws = Workspace::new(&root, config)?;
         Ok(PackageInfo {
-               cfg: config,
-               current_manifest: root,
-               ws: ws,
-           })
+            cfg: config,
+            current_manifest: root,
+            ws: ws,
+        })
     }
 
     /// provides the current package we are working with
@@ -67,8 +76,7 @@ impl<'cfg> PackageInfo<'cfg> {
     fn registry(&self) -> CargoResult<PackageRegistry<'cfg>> {
         let mut registry = PackageRegistry::new(self.cfg)?;
         let package = self.package()?;
-        registry
-            .add_sources(&[package.package_id().source_id().clone()])?;
+        registry.add_sources(vec![package.package_id().source_id().clone()])?;
         Ok(registry)
     }
 
@@ -81,18 +89,20 @@ impl<'cfg> PackageInfo<'cfg> {
         let (packages, resolve) = ops::resolve_ws(&self.ws)?;
 
         // resolve with all features set so we ensure we get all of the depends downloaded
-        let resolve = ops::resolve_with_previous(&mut registry,
-                                                 &self.ws,
-                                                 /* resolve it all */
-                                                 Method::Everything,
-                                                 /* previous */
-                                                 Some(&resolve),
-                                                 /* don't avoid any */
-                                                 None,
-                                                 /* specs */
-                                                 &[],
-                                                 /* warn? */
-                                                 true)?;
+        let resolve = ops::resolve_with_previous(
+            &mut registry,
+            &self.ws,
+            /* resolve it all */
+            Method::Everything,
+            /* previous */
+            Some(&resolve),
+            /* don't avoid any */
+            None,
+            /* specs */
+            &[],
+            /* warn? */
+            true,
+        )?;
 
         Ok((packages, resolve))
     }
@@ -104,11 +114,15 @@ impl<'cfg> PackageInfo<'cfg> {
         // this is the top level of the workspace
         let root = self.ws.root().to_path_buf();
         // path where our current package's Cargo.toml lives
-        let cwd = self.current_manifest.parent().unwrap();
+        let cwd = self.current_manifest.parent().ok_or(format_err!(
+            "Could not get parent of directory '{}'",
+            self.current_manifest.display()
+        ))?;
 
-        cwd.strip_prefix(&root)
+        Ok(cwd
+            .strip_prefix(&root)
             .map(|p| p.to_path_buf())
-            .chain_err(|| "Unable to if Cargo.toml is in a sub directory")
+            .chain_err(|| err_msg("Unable to if Cargo.toml is in a sub directory"))?)
     }
 }
 
@@ -134,24 +148,29 @@ Options:
 fn main() {
     let mut config = Config::default().unwrap();
     let args = env::args().collect::<Vec<_>>();
-    let result = cargo::call_main_without_stdin(real_main, &mut config, USAGE, &args, false);
+    let result = call_main_without_stdin(real_main, &mut config, USAGE, &args, false);
     if let Err(e) = result {
         cargo::exit_with_error(e, &mut *config.shell());
     }
 }
 
 fn real_main(options: Options, config: &mut Config) -> CliResult {
-    config
-        .configure(options.flag_verbose,
-                   options.flag_quiet,
-                   /* color */
-                   &None,
-                   /* frozen */
-                   false,
-                   /* locked */
-                   false,
-                   /* unstable flags */
-                   &[])?;
+    config.configure(
+        options.flag_verbose,
+        options.flag_quiet,
+        /* color */
+        &None,
+        /* frozen */
+        false,
+        /* locked */
+        false,
+        /* offline */
+        false,
+        /* target dir */
+        &None,
+        /* unstable flags */
+        &[],
+    )?;
 
     // Build up data about the package we are attempting to generate a recipe for
     let md = PackageInfo::new(config, None)?;
@@ -191,13 +210,16 @@ fn real_main(options: Options, config: &mut Config) -> CliResult {
                 // Just use the default download method for git repositories
                 // found in the source URIs, since cargo currently cannot
                 // initialize submodules for git dependencies anyway.
-                let url = git::git_to_yocto_git_url(src_id.url().as_str(), Some(pkg.name()), git::GitPrefix::default());
+                let url = git::git_to_yocto_git_url(
+                    src_id.url().as_str(),
+                    Some(pkg.name().as_str()),
+                    git::GitPrefix::default(),
+                );
 
                 // save revision
                 src_uri_extras.push(format!("SRCREV_FORMAT .= \"_{}\"", pkg.name()));
-                let rev = match *src_id.git_reference().unwrap() {
-                    GitReference::Tag(ref s) |
-                    GitReference::Rev(ref s) => s.to_owned(),
+                let rev = match *src_id.git_reference()? {
+                    GitReference::Tag(ref s) | GitReference::Rev(ref s) => s.to_owned(),
                     GitReference::Branch(ref s) => {
                         if s == "master" {
                             String::from("${AUTOREV}")
@@ -209,8 +231,10 @@ fn real_main(options: Options, config: &mut Config) -> CliResult {
 
                 src_uri_extras.push(format!("SRCREV_{} = \"{}\"", pkg.name(), rev));
                 // instruct Cargo where to find this
-                src_uri_extras
-                    .push(format!("EXTRA_OECARGO_PATHS += \"${{WORKDIR}}/{}\"", pkg.name()));
+                src_uri_extras.push(format!(
+                    "EXTRA_OECARGO_PATHS += \"${{WORKDIR}}/{}\"",
+                    pkg.name()
+                ));
 
                 Some(format!("    {} \\\n", url))
             } else {
@@ -231,7 +255,7 @@ fn real_main(options: Options, config: &mut Config) -> CliResult {
             println!("No package.description set in your Cargo.toml, using package.name");
             package.name()
         },
-        |s| s.trim(),
+        |s| cargo::core::InternedString::new(s.trim()),
     );
 
     // package homepage (or source code location)
@@ -244,7 +268,7 @@ fn real_main(options: Options, config: &mut Config) -> CliResult {
                 metadata
                     .repository
                     .as_ref()
-                    .ok_or_else(|| CargoError::from("No package.repository set in your Cargo.toml"))
+                    .ok_or_else(|| err_msg("No package.repository set in your Cargo.toml"))
             },
             |s| Ok(s),
         )?
@@ -267,7 +291,7 @@ fn real_main(options: Options, config: &mut Config) -> CliResult {
     );
 
     // compute the relative directory into the repo our Cargo.toml is at
-    let rel_dir = md.rel_dir().unwrap();
+    let rel_dir = md.rel_dir()?;
 
     // license files for the package
     let mut lic_files = vec![];
@@ -283,9 +307,9 @@ fn real_main(options: Options, config: &mut Config) -> CliResult {
 
     // attempt to figure out the git repo for this project
     let project_repo = git::ProjectRepo::new(config).unwrap_or_else(|e| {
-                                                                        println!("{}", e);
-                                                                        Default::default()
-                                                                    });
+        println!("{}", e);
+        Default::default()
+    });
 
     // if this is not a tag we need to include some data about the version in PV so that
     // the sstate cache remains valid
@@ -295,40 +319,66 @@ fn real_main(options: Options, config: &mut Config) -> CliResult {
     } else {
         // we should be using ${SRCPV} here but due to a bitbake bug we cannot. see:
         // https://github.com/meta-rust/meta-rust/issues/136
-        format!("PV_append = \".AUTOINC+{}\"",
-                project_repo.rev.split_at(10).0)
+        format!(
+            "PV_append = \".AUTOINC+{}\"",
+            project_repo.rev.split_at(10).0
+        )
     };
 
     // build up the path
     let recipe_path = PathBuf::from(format!("{}_{}.bb", package.name(), package.version()));
 
     // Open the file where we'll write the BitBake recipe
-    let mut file = try!(OpenOptions::new()
-                            .write(true)
-                            .create(true)
-                            .truncate(true)
-                            .open(&recipe_path)
-                            .chain_err(|| "failed to create BitBake recipe"));
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(&recipe_path)
+        // CliResult accepts only failure::Error, not failure::Context
+        .map_err(|e| format_err!("Unable to open bitbake recipe file with: {}", e))?;
 
     // write the contents out
-    try!(write!(file,
-                include_str!("bitbake.template"),
-                name = package.name(),
-                version = package.version(),
-                summary = summary,
-                homepage = homepage,
-                license = license,
-                lic_files = lic_files.join(""),
-                src_uri = src_uris.join(""),
-                src_uri_extras = src_uri_extras.join("\n"),
-                project_rel_dir = rel_dir.display(),
-                project_src_uri = project_repo.uri,
-                project_src_rev = project_repo.rev,
-                git_srcpv = git_srcpv,
-                cargo_bitbake_ver = env!("CARGO_PKG_VERSION"),
-                ).chain_err(|| "unable to write BitBake recipe to disk"));
+    write!(
+        file,
+        include_str!("bitbake.template"),
+        name = package.name(),
+        version = package.version(),
+        summary = summary,
+        homepage = homepage,
+        license = license,
+        lic_files = lic_files.join(""),
+        src_uri = src_uris.join(""),
+        src_uri_extras = src_uri_extras.join("\n"),
+        project_rel_dir = rel_dir.display(),
+        project_src_uri = project_repo.uri,
+        project_src_rev = project_repo.rev,
+        git_srcpv = git_srcpv,
+        cargo_bitbake_ver = env!("CARGO_PKG_VERSION"),
+    )
+    .map_err(|e| format_err!("Unable to write to bitbake recipe file with: {}", e))?;
 
     println!("Wrote: {}", recipe_path.display());
 
     Ok(())
+}
+
+pub fn call_main_without_stdin<Flags: DeserializeOwned>(
+    exec: fn(Flags, &mut Config) -> CliResult,
+    config: &mut Config,
+    usage: &str,
+    args: &[String],
+    options_first: bool,
+) -> CliResult {
+    let docopt = Docopt::new(usage)
+        .map_err(|e| format_err!("Could not parse usage with: {}", e))?
+        .options_first(options_first)
+        .argv(args.iter().map(|s| &s[..]))
+        .help(true);
+
+    let flags = docopt.deserialize().map_err(|e| {
+        let code = if e.fatal() { 1 } else { 0 };
+        CliError::new(e.into(), code)
+    })?;
+
+    exec(flags, config)
 }

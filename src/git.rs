@@ -19,7 +19,7 @@ use std::fmt::{self, Display};
 /// basic pattern to match ssh style remote URLs
 /// so that they can be fixed up
 /// git@github.com:cardoe/cargo-bitbake.git should match
-const SSH_STYLE_REMOTE_STR: &'static str = r".*@.*:.*";
+const SSH_STYLE_REMOTE_STR: &str = r".*@.*:.*";
 
 lazy_static! {
     static ref SSH_STYLE_REMOTE: Regex = Regex::new(SSH_STYLE_REMOTE_STR).unwrap();
@@ -109,13 +109,13 @@ impl ProjectRepo {
             GitPrefix::GitSubmodule
         };
 
-        let uri = remote.url().ok_or(err_msg("No URL for remote 'origin'"))?;
+        let uri = remote.url().ok_or_else(|| err_msg("No URL for remote 'origin'"))?;
         let uri = git_to_yocto_git_url(uri, None, prefix);
 
         let head = repo.head().chain_err(|| "Unable to find HEAD")?;
         let branch = head
             .shorthand()
-            .ok_or(err_msg("Unable resolve HEAD to a branch"))?;
+            .ok_or_else(|| err_msg("Unable resolve HEAD to a branch"))?;
 
         // if the branch is master or HEAD we don't want it
         let uri = if branch == "master" || branch == "HEAD" {
@@ -126,10 +126,10 @@ impl ProjectRepo {
 
         let rev = head
             .target()
-            .ok_or(err_msg("Unable to resolve HEAD to a commit"))?;
+            .ok_or_else(|| err_msg("Unable to resolve HEAD to a commit"))?;
 
         Ok(ProjectRepo {
-            uri: uri,
+            uri,
             branch: branch.to_string(),
             rev: rev.to_string(),
             tag: Self::rev_is_tag(&repo, &rev),

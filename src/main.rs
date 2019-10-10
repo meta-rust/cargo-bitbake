@@ -41,7 +41,7 @@ use std::path::PathBuf;
 mod git;
 mod license;
 
-const CRATES_IO_URL: &'static str = "crates.io";
+const CRATES_IO_URL: &str = "crates.io";
 
 /// Represents the package we are trying to generate a recipe for
 struct PackageInfo<'cfg> {
@@ -55,14 +55,14 @@ impl<'cfg> PackageInfo<'cfg> {
     /// which may not be provided
     fn new(config: &Config, manifest_path: Option<String>) -> CargoResult<PackageInfo> {
         let manifest_path = manifest_path
-            .map(|p| PathBuf::from(p))
-            .unwrap_or(config.cwd().to_path_buf());
+            .map(PathBuf::from)
+            .unwrap_or_else(|| config.cwd().to_path_buf());
         let root = important_paths::find_root_manifest_for_wd(&manifest_path)?;
         let ws = Workspace::new(&root, config)?;
         Ok(PackageInfo {
             cfg: config,
             current_manifest: root,
-            ws: ws,
+            ws,
         })
     }
 
@@ -76,7 +76,7 @@ impl<'cfg> PackageInfo<'cfg> {
     fn registry(&self) -> CargoResult<PackageRegistry<'cfg>> {
         let mut registry = PackageRegistry::new(self.cfg)?;
         let package = self.package()?;
-        registry.add_sources(vec![package.package_id().source_id().clone()])?;
+        registry.add_sources(vec![package.package_id().source_id()])?;
         Ok(registry)
     }
 
@@ -114,7 +114,7 @@ impl<'cfg> PackageInfo<'cfg> {
         // this is the top level of the workspace
         let root = self.ws.root().to_path_buf();
         // path where our current package's Cargo.toml lives
-        let cwd = self.current_manifest.parent().ok_or(format_err!(
+        let cwd = self.current_manifest.parent().ok_or_else(|| format_err!(
             "Could not get parent of directory '{}'",
             self.current_manifest.display()
         ))?;
@@ -133,7 +133,7 @@ struct Options {
     flag_quiet: Option<bool>,
 }
 
-const USAGE: &'static str = r#"
+const USAGE: &str = r#"
 Create BitBake recipe for a project
 
 Usage:

@@ -26,8 +26,7 @@ fn file_md5<P: AsRef<Path>>(license_file: P) -> Result<String, io::Error> {
 
 /// Given the top level of the crate at `crate_root`, attempt to find
 /// the license file based on the name of the license in `license_name`.
-pub fn file(crate_root: &Path, rel_dir: &Path,
-            license_name: &str, single_license: bool) -> String {
+pub fn file(crate_root: &Path, rel_dir: &Path, license_name: &str, single_license: bool) -> String {
     // CLOSED is a special case license (case sensitive) per
     // http://www.yoctoproject.org/docs/2.3.2/mega-manual/mega-manual.html#sdk-license-detection
     // that means this is closed source and there is no license
@@ -58,14 +57,18 @@ pub fn file(crate_root: &Path, rel_dir: &Path,
     } else if spec_abs_path.exists() {
         // the special case
         let md5sum = file_md5(spec_abs_path).unwrap_or_else(|_| String::from("generateme"));
-        format!("file://{};md5={} \\\n",
-                rel_dir.join(spec_path).display(),
-                md5sum)
+        format!(
+            "file://{};md5={} \\\n",
+            rel_dir.join(spec_path).display(),
+            md5sum
+        )
     } else if simple_abs_path.exists() && single_license {
         let md5sum = file_md5(simple_abs_path).unwrap_or_else(|_| String::from("generateme"));
-        format!("file://{};md5={} \\\n",
-                rel_dir.join(simple_path).display(),
-                md5sum)
+        format!(
+            "file://{};md5={} \\\n",
+            rel_dir.join(simple_path).display(),
+            md5sum
+        )
     } else {
         // fall through
         format!("file://{};md5=generateme \\\n", license_name)

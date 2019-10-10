@@ -114,10 +114,12 @@ impl<'cfg> PackageInfo<'cfg> {
         // this is the top level of the workspace
         let root = self.ws.root().to_path_buf();
         // path where our current package's Cargo.toml lives
-        let cwd = self.current_manifest.parent().ok_or_else(|| format_err!(
-            "Could not get parent of directory '{}'",
-            self.current_manifest.display()
-        ))?;
+        let cwd = self.current_manifest.parent().ok_or_else(|| {
+            format_err!(
+                "Could not get parent of directory '{}'",
+                self.current_manifest.display()
+            )
+        })?;
 
         Ok(cwd
             .strip_prefix(&root)
@@ -197,10 +199,12 @@ fn real_main(options: Options, config: &mut Config) -> CliResult {
                 None
             } else if src_id.is_registry() {
                 // this package appears in a crate registry
-                Some(format!("    crate://{}/{}/{} \\\n",
-                             CRATES_IO_URL,
-                             pkg.name(),
-                             pkg.version()))
+                Some(format!(
+                    "    crate://{}/{}/{} \\\n",
+                    CRATES_IO_URL,
+                    pkg.name(),
+                    pkg.version()
+                ))
             } else if src_id.is_path() {
                 // we don't want to spit out path based
                 // entries since they're within the crate
@@ -298,8 +302,10 @@ fn real_main(options: Options, config: &mut Config) -> CliResult {
     let licenses: Vec<&str> = license.split('/').collect();
     let single_license = licenses.len() == 1;
     for lic in licenses {
-        lic_files.push(format!("    {}", license::file(crate_root, &rel_dir, lic,
-                                                       single_license)));
+        lic_files.push(format!(
+            "    {}",
+            license::file(crate_root, &rel_dir, lic, single_license)
+        ));
     }
 
     // license data in Yocto fmt

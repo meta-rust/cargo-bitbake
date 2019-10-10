@@ -109,7 +109,9 @@ impl ProjectRepo {
             GitPrefix::GitSubmodule
         };
 
-        let uri = remote.url().ok_or_else(|| err_msg("No URL for remote 'origin'"))?;
+        let uri = remote
+            .url()
+            .ok_or_else(|| err_msg("No URL for remote 'origin'"))?;
         let uri = git_to_yocto_git_url(uri, None, prefix);
 
         let head = repo.head().chain_err(|| "Unable to find HEAD")?;
@@ -186,21 +188,30 @@ mod test {
     fn remote_http_nosuffix() {
         let repo = "http://github.com/rust-lang/cargo.git";
         let url = git_to_yocto_git_url(repo, None, GitPrefix::Git);
-        assert_eq!(url, "git://github.com/rust-lang/cargo.git;protocol=http;nobranch=1");
+        assert_eq!(
+            url,
+            "git://github.com/rust-lang/cargo.git;protocol=http;nobranch=1"
+        );
     }
 
     #[test]
     fn remote_https_nosuffix() {
         let repo = "https://github.com/rust-lang/cargo.git";
         let url = git_to_yocto_git_url(repo, None, GitPrefix::Git);
-        assert_eq!(url, "git://github.com/rust-lang/cargo.git;protocol=https;nobranch=1");
+        assert_eq!(
+            url,
+            "git://github.com/rust-lang/cargo.git;protocol=https;nobranch=1"
+        );
     }
 
     #[test]
     fn remote_ssh_nosuffix() {
         let repo = "git@github.com:rust-lang/cargo.git";
         let url = git_to_yocto_git_url(repo, None, GitPrefix::Git);
-        assert_eq!(url, "git://git@github.com/rust-lang/cargo.git;protocol=ssh;nobranch=1");
+        assert_eq!(
+            url,
+            "git://git@github.com/rust-lang/cargo.git;protocol=ssh;nobranch=1"
+        );
     }
 
     #[test]

@@ -15,11 +15,8 @@ extern crate lazy_static;
 extern crate git2;
 extern crate md5;
 extern crate regex;
-#[macro_use]
-extern crate serde_derive;
-extern crate docopt;
+extern crate structopt;
 extern crate failure;
-extern crate serde;
 
 use cargo::core::registry::PackageRegistry;
 use cargo::core::resolver::Method;
@@ -27,16 +24,16 @@ use cargo::core::source::GitReference;
 use cargo::core::{Package, PackageSet, Resolve, Workspace};
 use cargo::ops;
 use cargo::util::{important_paths, CargoResult, CargoResultExt};
-use cargo::{CliError, CliResult, Config};
-use docopt::Docopt;
+use cargo::{CliResult, Config};
 use failure::{err_msg, format_err};
 use itertools::Itertools;
-use serde::de::DeserializeOwned;
 use std::default::Default;
 use std::env;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::PathBuf;
+use structopt::clap::AppSettings;
+use structopt::StructOpt;
 
 mod git;
 mod license;
@@ -128,38 +125,44 @@ impl<'cfg> PackageInfo<'cfg> {
     }
 }
 
-/// command line options for this command
-#[derive(Deserialize)]
-struct Options {
-    flag_verbose: u32,
-    flag_quiet: Option<bool>,
+#[derive(StructOpt, Debug)]
+struct Args {
+    /// Silence all output
+    #[structopt(short = "q")]
+    quiet: bool,
+
+    /// Verbose mode (-v, -vv, -vvv, etc.)
+    #[structopt(short = "v", parse(from_occurrences))]
+    verbose: usize,
 }
 
-const USAGE: &str = r#"
-Create BitBake recipe for a project
-
-Usage:
-    cargo bitbake [options]
-
-Options:
-    -h, --help          Print this message
-    -v, --verbose       Use verbose output
-    -q, --quiet         No output printed to stdout
-"#;
+#[structopt(
+    name = "cargo-bitbake",
+    bin_name = "cargo",
+    author,
+    about = "Generates a BitBake recipe for a given Cargo project",
+    global_settings(&[AppSettings::ColoredHelp])
+)]
+#[derive(StructOpt, Debug)]
+enum Opt {
+    /// Generates a BitBake recipe for a given Cargo project
+    #[structopt(name = "bitbake")]
+    Bitbake(Args),
+}
 
 fn main() {
     let mut config = Config::default().unwrap();
-    let args = env::args().collect::<Vec<_>>();
-    let result = call_main_without_stdin(real_main, &mut config, USAGE, &args, false);
+    let Opt::Bitbake(opt) = Opt::from_args();
+    let result = real_main(opt, &mut config);
     if let Err(e) = result {
         cargo::exit_with_error(e, &mut *config.shell());
     }
 }
 
-fn real_main(options: Options, config: &mut Config) -> CliResult {
+fn real_main(options: Args, config: &mut Config) -> CliResult {
     config.configure(
-        options.flag_verbose,
-        options.flag_quiet,
+        options.verbose as u32,
+        Some(options.quiet),
         /* color */
         &None,
         /* frozen */
@@ -366,25 +369,4 @@ fn real_main(options: Options, config: &mut Config) -> CliResult {
     println!("Wrote: {}", recipe_path.display());
 
     Ok(())
-}
-
-pub fn call_main_without_stdin<Flags: DeserializeOwned>(
-    exec: fn(Flags, &mut Config) -> CliResult,
-    config: &mut Config,
-    usage: &str,
-    args: &[String],
-    options_first: bool,
-) -> CliResult {
-    let docopt = Docopt::new(usage)
-        .map_err(|e| format_err!("Could not parse usage with: {}", e))?
-        .options_first(options_first)
-        .argv(args.iter().map(|s| &s[..]))
-        .help(true);
-
-    let flags = docopt.deserialize().map_err(|e| {
-        let code = if e.fatal() { 1 } else { 0 };
-        CliError::new(e.into(), code)
-    })?;
-
-    exec(flags, config)
 }

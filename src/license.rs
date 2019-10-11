@@ -17,10 +17,10 @@ pub const CLOSED_LICENSE: &str = "CLOSED";
 
 /// For a given file at path `license_file`, generate the MD5 sum
 fn file_md5<P: AsRef<Path>>(license_file: P) -> Result<String, io::Error> {
-    let mut file = try!(File::open(license_file));
+    let mut file = File::open(license_file)?;
     let mut context = Context::new();
 
-    try!(io::copy(&mut file, &mut context));
+    io::copy(&mut file, &mut context)?;
     Ok(format!("{:x}", context.compute()))
 }
 

@@ -155,7 +155,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-bitbake"
-version = "0.3.12"
+version = "0.3.13-alpha.0"
 dependencies = [
  "cargo 0.37.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",

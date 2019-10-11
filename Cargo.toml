@@ -13,6 +13,9 @@ repository = "https://github.com/cardoe/cargo-bitbake"
 version = "0.3.13-alpha.0"
 
 [badges]
+is-it-maintained-issue-resolution = { repository = "cardoe/cargo-bitbake" }
+is-it-maintained-open-issues = { repository = "cardoe/cargo-bitbake" }
+maintenance = { status = "passively-maintained" }
 
 [badges.travis-ci]
 repository = "cardoe/cargo-bitbake"

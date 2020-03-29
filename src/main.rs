@@ -19,7 +19,7 @@ extern crate structopt;
 extern crate failure;
 
 use cargo::core::registry::PackageRegistry;
-use cargo::core::resolver::Method;
+use cargo::core::resolver::ResolveOpts;
 use cargo::core::source::GitReference;
 use cargo::core::{Package, PackageSet, Resolve, Workspace};
 use cargo::ops;
@@ -90,7 +90,7 @@ impl<'cfg> PackageInfo<'cfg> {
             &mut registry,
             &self.ws,
             /* resolve it all */
-            Method::Everything,
+            ResolveOpts::everything(),
             /* previous */
             Some(&resolve),
             /* don't avoid any */

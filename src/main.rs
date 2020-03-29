@@ -12,11 +12,11 @@ extern crate cargo;
 extern crate itertools;
 #[macro_use]
 extern crate lazy_static;
+extern crate failure;
 extern crate git2;
 extern crate md5;
 extern crate regex;
 extern crate structopt;
-extern crate failure;
 
 use cargo::core::registry::PackageRegistry;
 use cargo::core::resolver::ResolveOpts;

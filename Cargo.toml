@@ -10,7 +10,7 @@ edition = "2018"
 name = "cargo-bitbake"
 readme = "README.md"
 repository = "https://github.com/cardoe/cargo-bitbake"
-version = "0.3.13-alpha.0"
+version = "0.3.13"
 
 [badges]
 is-it-maintained-issue-resolution = { repository = "cardoe/cargo-bitbake" }

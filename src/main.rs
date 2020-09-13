@@ -187,6 +187,10 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
         .parent()
         .expect("Cargo.toml must have a parent");
 
+    if package.name().contains("_") {
+        println!("Package name contains an underscore");
+    }
+
     // Resolve all dependencies (generate or use Cargo.lock as necessary)
     let resolve = md.resolve()?;
 

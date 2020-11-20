@@ -266,7 +266,7 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
             println!("No package.description set in your Cargo.toml, using package.name");
             package.name()
         },
-        |s| cargo::core::InternedString::new(s.trim()),
+        |s| cargo::core::InternedString::new(&s.trim().replace("\n", " \\\n")),
     );
 
     // package homepage (or source code location)

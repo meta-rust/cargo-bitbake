@@ -373,11 +373,33 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
         "".into()
     };
 
+    // Build up the recipe inc path
+    let recipe_inc_path = PathBuf::from(format!("{}_{}.inc", package.name(), package.version()));
+
+    // Open the file where we'll write the BitBake include recipe
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(&recipe_inc_path)
+        // CliResult accepts only failure::Error, not failure::Context
+        .map_err(|e| anyhow::format_err!("Unable to open bitbake recipe inc file with: {}", e))?;
+
+    // Write the contents out
+    write!(
+        file,
+        include_str!("bitbake_inc.template"),
+        src_uri = src_uris.join(""),
+    )
+    .map_err(|e| anyhow::format_err!("Unable to write to bitbake recipe inc file with: {}", e))?;
+
+    println!("Wrote: {}", recipe_inc_path.display());
+
     // build up the path
     let recipe_path = PathBuf::from(format!("{}_{}.bb", package.name(), package.version()));
 
     // Open the file where we'll write the BitBake recipe
-    let mut file = OpenOptions::new()
+    file = OpenOptions::new()
         .write(true)
         .create(true)
         .truncate(true)
@@ -395,7 +417,7 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
         homepage = homepage,
         license = license,
         lic_files = lic_files.join(""),
-        src_uri = src_uris.join(""),
+        src_uri_inc_path = recipe_inc_path.display(),
         src_uri_extras = src_uri_extras.join("\n"),
         project_rel_dir = rel_dir.display(),
         project_src_uri = project_repo.uri,

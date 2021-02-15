@@ -11,6 +11,7 @@ SRC_URI += "{project_src_uri}"
 SRCREV = "{project_src_rev}"
 S = "${{WORKDIR}}/git"
 CARGO_SRC_DIR = "{project_rel_dir}"
+MANIFEST_PATH = "${{S}}/${{CARGO_SRC_DIR}}/Cargo.toml"
 {git_srcpv}
 
 # please note if you have entries that do not begin with crate://

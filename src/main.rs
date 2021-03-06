@@ -326,16 +326,13 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
 
     // if this is not a tag we need to include some data about the version in PV so that
     // the sstate cache remains valid
-    let git_srcpv = if project_repo.tag && project_repo.rev.len() > 10 {
-        // its a tag so nothing needed
-        "".into()
-    } else {
+    let git_srcpv = if !project_repo.tag && project_repo.rev.len() > 10 {
         // we should be using ${SRCPV} here but due to a bitbake bug we cannot. see:
         // https://github.com/meta-rust/meta-rust/issues/136
-        format!(
-            "PV_append = \".AUTOINC+{}\"",
-            project_repo.rev.split_at(10).0
-        )
+        format!("PV_append = \".AUTOINC+{}\"", &project_repo.rev[..10])
+    } else {
+        // its a tag so nothing needed
+        "".into()
     };
 
     // build up the path

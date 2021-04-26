@@ -8,16 +8,16 @@
  * except according to those terms.
  */
 
+extern crate anyhow;
 extern crate cargo;
-extern crate itertools;
-#[macro_use]
-extern crate lazy_static;
-extern crate failure;
 extern crate git2;
+extern crate itertools;
+extern crate lazy_static;
 extern crate md5;
 extern crate regex;
 extern crate structopt;
 
+use anyhow::anyhow;
 use cargo::core::registry::PackageRegistry;
 use cargo::core::resolver::ResolveOpts;
 use cargo::core::source::GitReference;
@@ -25,7 +25,6 @@ use cargo::core::{Package, PackageSet, Resolve, Workspace};
 use cargo::ops;
 use cargo::util::{important_paths, CargoResult, CargoResultExt};
 use cargo::{CliResult, Config};
-use failure::{err_msg, format_err};
 use itertools::Itertools;
 use std::default::Default;
 use std::env;
@@ -90,7 +89,7 @@ impl<'cfg> PackageInfo<'cfg> {
             &mut registry,
             &self.ws,
             /* resolve it all */
-            ResolveOpts::everything(),
+            &ResolveOpts::everything(),
             /* previous */
             Some(&resolve),
             /* don't avoid any */
@@ -112,7 +111,7 @@ impl<'cfg> PackageInfo<'cfg> {
         let root = self.ws.root().to_path_buf();
         // path where our current package's Cargo.toml lives
         let cwd = self.current_manifest.parent().ok_or_else(|| {
-            format_err!(
+            anyhow!(
                 "Could not get parent of directory '{}'",
                 self.current_manifest.display()
             )
@@ -121,7 +120,7 @@ impl<'cfg> PackageInfo<'cfg> {
         Ok(cwd
             .strip_prefix(&root)
             .map(|p| p.to_path_buf())
-            .chain_err(|| err_msg("Unable to if Cargo.toml is in a sub directory"))?)
+            .chain_err(|| anyhow!("Unable to if Cargo.toml is in a sub directory"))?)
     }
 }
 
@@ -162,9 +161,9 @@ fn main() {
 fn real_main(options: Args, config: &mut Config) -> CliResult {
     config.configure(
         options.verbose as u32,
-        Some(options.quiet),
+        options.quiet,
         /* color */
-        &None,
+        None,
         /* frozen */
         false,
         /* locked */
@@ -174,6 +173,8 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
         /* target dir */
         &None,
         /* unstable flags */
+        &[],
+        /* CLI config */
         &[],
     )?;
 
@@ -238,6 +239,7 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
                             s.to_owned()
                         }
                     }
+                    GitReference::DefaultBranch => String::from("${AUTOREV}"),
                 };
 
                 src_uri_extras.push(format!("SRCREV_{} = \"{}\"", pkg.name(), rev));
@@ -266,7 +268,7 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
             println!("No package.description set in your Cargo.toml, using package.name");
             package.name()
         },
-        |s| cargo::core::InternedString::new(&s.trim().replace("\n", " \\\n")),
+        |s| cargo::util::interning::InternedString::new(&s.trim().replace("\n", " \\\n")),
     );
 
     // package homepage (or source code location)
@@ -279,7 +281,7 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
                 metadata
                     .repository
                     .as_ref()
-                    .ok_or_else(|| err_msg("No package.repository set in your Cargo.toml"))
+                    .ok_or_else(|| anyhow!("No package.repository set in your Cargo.toml"))
             },
             |s| Ok(s),
         )?
@@ -345,7 +347,7 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
         .truncate(true)
         .open(&recipe_path)
         // CliResult accepts only failure::Error, not failure::Context
-        .map_err(|e| format_err!("Unable to open bitbake recipe file with: {}", e))?;
+        .map_err(|e| anyhow!("Unable to open bitbake recipe file with: {}", e))?;
 
     // write the contents out
     write!(
@@ -365,7 +367,7 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
         git_srcpv = git_srcpv,
         cargo_bitbake_ver = env!("CARGO_PKG_VERSION"),
     )
-    .map_err(|e| format_err!("Unable to write to bitbake recipe file with: {}", e))?;
+    .map_err(|e| anyhow!("Unable to write to bitbake recipe file with: {}", e))?;
 
     println!("Wrote: {}", recipe_path.display());
 

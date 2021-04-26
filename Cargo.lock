@@ -139,7 +139,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-bitbake"
-version = "0.3.15"
+version = "0.3.16-alpha.0"
 dependencies = [
  "anyhow",
  "cargo",

@@ -133,8 +133,13 @@ struct Args {
     /// Verbose mode (-v, -vv, -vvv, etc.)
     #[structopt(short = "v", parse(from_occurrences))]
     verbose: usize,
+
+    /// Reproducible mode: Output exact git references for git projects
+    #[structopt(short = "R")]
+    reproducible: bool,
 }
 
+#[derive(StructOpt, Debug)]
 #[structopt(
     name = "cargo-bitbake",
     bin_name = "cargo",
@@ -142,7 +147,6 @@ struct Args {
     about = "Generates a BitBake recipe for a given Cargo project",
     global_settings(&[AppSettings::ColoredHelp])
 )]
-#[derive(StructOpt, Debug)]
 enum Opt {
     /// Generates a BitBake recipe for a given Cargo project
     #[structopt(name = "bitbake")]
@@ -230,16 +234,27 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
 
                 // save revision
                 src_uri_extras.push(format!("SRCREV_FORMAT .= \"_{}\"", pkg.name()));
-                let rev = match *src_id.git_reference()? {
-                    GitReference::Tag(ref s) | GitReference::Rev(ref s) => s.to_owned(),
-                    GitReference::Branch(ref s) => {
-                        if s == "master" {
-                            String::from("${AUTOREV}")
-                        } else {
-                            s.to_owned()
+
+                let precise = if options.reproducible {
+                    src_id.precise()
+                } else {
+                    None
+                };
+
+                let rev = if let Some(precise) = precise {
+                    precise.to_owned()
+                } else {
+                    match *src_id.git_reference()? {
+                        GitReference::Tag(ref s) | GitReference::Rev(ref s) => s.to_owned(),
+                        GitReference::Branch(ref s) => {
+                            if s == "master" {
+                                String::from("${AUTOREV}")
+                            } else {
+                                s.to_owned()
+                            }
                         }
+                        GitReference::DefaultBranch => String::from("${AUTOREV}"),
                     }
-                    GitReference::DefaultBranch => String::from("${AUTOREV}"),
                 };
 
                 src_uri_extras.push(format!("SRCREV_{} = \"{}\"", pkg.name(), rev));

@@ -245,7 +245,21 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
                     precise.to_owned()
                 } else {
                     match *src_id.git_reference()? {
-                        GitReference::Tag(ref s) | GitReference::Rev(ref s) => s.to_owned(),
+                        GitReference::Tag(ref s) => {
+                            s.to_owned()
+                        },
+                        GitReference::Rev(ref s) => {
+                            if s.len() != 40 { // avoid reduced hashes
+                                let precise = src_id.precise();
+                                if let Some(p) = precise {
+                                    String::from(p).to_owned()
+                                } else {
+                                    panic!("cannot find rev in correct format!");
+                                }
+                            } else {
+                                s.to_owned()
+                            }
+                        },
                         GitReference::Branch(ref s) => {
                             if s == "master" {
                                 String::from("${AUTOREV}")

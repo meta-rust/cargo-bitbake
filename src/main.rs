@@ -157,7 +157,7 @@ struct Args {
 
     /// Target triple: Specify target triple for dependency resolver (eg. armv7-unknown-linux-gnueabihf)
     #[structopt(short = "t")]
-    target: String,
+    target: Option<String>,
 }
 
 #[derive(StructOpt, Debug)]
@@ -204,8 +204,9 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
     )?;
 
     // Build up data about the package we are attempting to generate a recipe for
-    let target = CompileTarget::new(options.target.as_str());
-    let md = PackageInfo::new(config, None, target.map_or_else(|_| None, Some))?;
+    let target: Option<CompileTarget> = options.target.as_ref().map_or_else(|| None,
+                                            |target| CompileTarget::new(target.as_str()).map_or_else(|_| None, Some));
+    let md = PackageInfo::new(config, None, target)?;
 
     // Our current package
     let package = md.package()?;

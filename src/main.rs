@@ -19,9 +19,9 @@ extern crate structopt;
 
 use anyhow::anyhow;
 use cargo::core::registry::PackageRegistry;
-use cargo::core::resolver::ResolveOpts;
+use cargo::core::resolver::{ResolveOpts, HasDevUnits, ForceAllTargets};
 use cargo::core::source::GitReference;
-use cargo::core::{Package, PackageSet, Resolve, Workspace};
+use cargo::core::{Package, PackageSet, Resolve, Workspace, PackageId};
 use cargo::ops;
 use cargo::util::{important_paths, CargoResult, CargoResultExt};
 use cargo::{CliResult, Config};
@@ -33,6 +33,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use structopt::clap::AppSettings;
 use structopt::StructOpt;
+use cargo::core::compiler::{RustcTargetData, CompileKind, CompileTarget};
 
 mod git;
 mod license;
@@ -43,13 +44,14 @@ const CRATES_IO_URL: &str = "crates.io";
 struct PackageInfo<'cfg> {
     cfg: &'cfg Config,
     current_manifest: PathBuf,
+    target: Option<CompileTarget>,
     ws: Workspace<'cfg>,
 }
 
 impl<'cfg> PackageInfo<'cfg> {
     /// creates our package info from the config and the manifest_path,
     /// which may not be provided
-    fn new(config: &Config, manifest_path: Option<String>) -> CargoResult<PackageInfo> {
+    fn new(config: &Config, manifest_path: Option<String>, target: Option<CompileTarget>) -> CargoResult<PackageInfo> {
         let manifest_path = manifest_path
             .map(PathBuf::from)
             .unwrap_or_else(|| config.cwd().to_path_buf());
@@ -58,6 +60,7 @@ impl<'cfg> PackageInfo<'cfg> {
         Ok(PackageInfo {
             cfg: config,
             current_manifest: root,
+            target,
             ws,
         })
     }
@@ -77,7 +80,7 @@ impl<'cfg> PackageInfo<'cfg> {
     }
 
     /// Resolve the packages necessary for the workspace
-    fn resolve(&self) -> CargoResult<(PackageSet<'cfg>, Resolve)> {
+    fn resolve(&self) -> CargoResult<Vec<PackageId>> {
         // build up our registry
         let mut registry = self.registry()?;
 
@@ -100,7 +103,20 @@ impl<'cfg> PackageInfo<'cfg> {
             true,
         )?;
 
-        Ok((packages, resolve))
+        match self.target {
+            None => {
+                Ok(packages.package_ids().collect_vec())
+            }
+            Some(target) => {
+                let target_data = RustcTargetData::new(&self.ws, &[CompileKind::Target(target)])?;
+                Ok(packages.package_ids().filter(| p| {
+                    resolve.deps(*p).filter(|&(_id, deps)| {
+                        deps.iter().any(|dep| {
+                            target_data.dep_platform_activated(dep, CompileKind::Target(target))
+                        })}).collect_vec().is_empty()
+                }).collect_vec())
+            }
+        }
     }
 
     /// packages that are part of a workspace are a sub directory from the
@@ -117,10 +133,10 @@ impl<'cfg> PackageInfo<'cfg> {
             )
         })?;
 
-        Ok(cwd
+        cwd
             .strip_prefix(&root)
             .map(|p| p.to_path_buf())
-            .chain_err(|| anyhow!("Unable to if Cargo.toml is in a sub directory"))?)
+            .chain_err(|| anyhow!("Unable to if Cargo.toml is in a sub directory"))
     }
 }
 
@@ -137,6 +153,11 @@ struct Args {
     /// Reproducible mode: Output exact git references for git projects
     #[structopt(short = "R")]
     reproducible: bool,
+
+
+    /// Target triple: Specify target triple for dependency resolver (eg. armv7-unknown-linux-gnueabihf)
+    #[structopt(short = "t")]
+    target: String,
 }
 
 #[derive(StructOpt, Debug)]
@@ -183,7 +204,8 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
     )?;
 
     // Build up data about the package we are attempting to generate a recipe for
-    let md = PackageInfo::new(config, None)?;
+    let target = CompileTarget::new(options.target.as_str());
+    let md = PackageInfo::new(config, None, target.map_or_else(|_| None, Some))?;
 
     // Our current package
     let package = md.package()?;
@@ -192,17 +214,16 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
         .parent()
         .expect("Cargo.toml must have a parent");
 
-    if package.name().contains("_") {
+    if package.name().contains('_') {
         println!("Package name contains an underscore");
     }
 
     // Resolve all dependencies (generate or use Cargo.lock as necessary)
-    let resolve = md.resolve()?;
+    let pkg_ids = md.resolve()?;
 
     // build the crate URIs
     let mut src_uri_extras = vec![];
-    let mut src_uris = resolve
-        .1
+    let mut src_uris = pkg_ids
         .iter()
         .filter_map(|pkg| {
             // get the source info for this package

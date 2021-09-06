@@ -360,7 +360,7 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
     let git_srcpv = if !project_repo.tag && project_repo.rev.len() > 10 {
         // we should be using ${SRCPV} here but due to a bitbake bug we cannot. see:
         // https://github.com/meta-rust/meta-rust/issues/136
-        format!("PV_append = \".AUTOINC+{}\"", &project_repo.rev[..10])
+        format!("PV:append = \".AUTOINC+{}\"", &project_repo.rev[..10])
     } else {
         // its a tag so nothing needed
         "".into()

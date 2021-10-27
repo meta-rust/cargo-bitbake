@@ -22,10 +22,10 @@ repository = "cardoe/cargo-bitbake"
 
 [dependencies]
 anyhow = "^1.0"
-cargo = "^0.50"
+cargo = "^0.56"
 git2 = "0.13"
-itertools = "^0.5.0"
+itertools = "^0.10"
 lazy_static = "^1"
-md5 = "^0.3"
+md5 = "^0.7"
 regex = "^1"
 structopt = "^0.3"

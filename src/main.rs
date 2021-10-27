@@ -17,13 +17,14 @@ extern crate md5;
 extern crate regex;
 extern crate structopt;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context as _};
 use cargo::core::registry::PackageRegistry;
-use cargo::core::resolver::ResolveOpts;
+use cargo::core::resolver::features::HasDevUnits;
+use cargo::core::resolver::CliFeatures;
 use cargo::core::source::GitReference;
 use cargo::core::{Package, PackageSet, Resolve, Workspace};
 use cargo::ops;
-use cargo::util::{important_paths, CargoResult, CargoResultExt};
+use cargo::util::{important_paths, CargoResult};
 use cargo::{CliResult, Config};
 use itertools::Itertools;
 use std::default::Default;
@@ -89,7 +90,8 @@ impl<'cfg> PackageInfo<'cfg> {
             &mut registry,
             &self.ws,
             /* resolve it all */
-            &ResolveOpts::everything(),
+            &CliFeatures::new_all(true),
+            HasDevUnits::No,
             /* previous */
             Some(&resolve),
             /* don't avoid any */
@@ -120,7 +122,7 @@ impl<'cfg> PackageInfo<'cfg> {
         Ok(cwd
             .strip_prefix(&root)
             .map(|p| p.to_path_buf())
-            .chain_err(|| anyhow!("Unable to if Cargo.toml is in a sub directory"))?)
+            .context("Unable to if Cargo.toml is in a sub directory")?)
     }
 }
 
@@ -245,11 +247,10 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
                     precise.to_owned()
                 } else {
                     match *src_id.git_reference()? {
-                        GitReference::Tag(ref s) => {
-                            s.to_owned()
-                        },
+                        GitReference::Tag(ref s) => s.to_owned(),
                         GitReference::Rev(ref s) => {
-                            if s.len() != 40 { // avoid reduced hashes
+                            if s.len() != 40 {
+                                // avoid reduced hashes
                                 let precise = src_id.precise();
                                 if let Some(p) = precise {
                                     String::from(p).to_owned()
@@ -259,7 +260,7 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
                             } else {
                                 s.to_owned()
                             }
-                        },
+                        }
                         GitReference::Branch(ref s) => {
                             if s == "master" {
                                 String::from("${AUTOREV}")

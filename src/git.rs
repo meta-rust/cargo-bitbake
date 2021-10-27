@@ -8,9 +8,9 @@
  * except according to those terms.
  */
 
-use cargo::util::{CargoResult, CargoResultExt};
+use anyhow::{anyhow, Context as _};
+use cargo::util::CargoResult;
 use cargo::Config;
-use anyhow::anyhow;
 use git2::{self, Repository};
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -95,15 +95,15 @@ impl ProjectRepo {
     /// Attempts to guess at the upstream repo this project can be fetched from
     pub fn new(config: &Config) -> CargoResult<ProjectRepo> {
         let repo = Repository::discover(config.cwd())
-            .chain_err(|| "Unable to determine git repo for this project")?;
+            .context("Unable to determine git repo for this project")?;
 
         let remote = repo
             .find_remote("origin")
-            .chain_err(|| "Unable to find remote 'origin' for this project")?;
+            .context("Unable to find remote 'origin' for this project")?;
 
         let submodules = repo
             .submodules()
-            .chain_err(|| "Unable to determine the submodules")?;
+            .context("Unable to determine the submodules")?;
         let prefix = if submodules.is_empty() {
             GitPrefix::Git
         } else {
@@ -115,7 +115,7 @@ impl ProjectRepo {
             .ok_or_else(|| anyhow!("No URL for remote 'origin'"))?;
         let uri = git_to_yocto_git_url(uri, None, prefix);
 
-        let head = repo.head().chain_err(|| "Unable to find HEAD")?;
+        let head = repo.head().context("Unable to find HEAD")?;
         let branch = head
             .shorthand()
             .ok_or_else(|| anyhow!("Unable resolve HEAD to a branch"))?;

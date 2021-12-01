@@ -8,9 +8,9 @@
  * except according to those terms.
  */
 
+use anyhow::anyhow;
 use cargo::util::{CargoResult, CargoResultExt};
 use cargo::Config;
-use anyhow::anyhow;
 use git2::{self, Repository};
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -33,8 +33,8 @@ pub enum GitPrefix {
 }
 
 impl Default for GitPrefix {
-    fn default() -> GitPrefix {
-        GitPrefix::Git
+    fn default() -> Self {
+        Self::Git
     }
 }
 
@@ -67,10 +67,10 @@ pub fn git_to_yocto_git_url(url: &str, name: Option<&str>, prefix: GitPrefix) ->
     // and append metadata necessary for Yocto to generate
     // data for Cargo to understand
     let yocto_url = match fixed_url.split_at(fixed_url.find(':').unwrap()) {
-        (proto @ "ssh", rest) | (proto @ "http", rest) | (proto @ "https", rest) => {
+        (proto @ ("ssh" | "http" | "https"), rest) => {
             format!("{}{};protocol={}", prefix, rest, proto)
         }
-        (_, _) => fixed_url.to_owned(),
+        (_, _) => fixed_url,
     };
 
     // by default bitbake only look for SHAs and refs on the master branch.
@@ -93,7 +93,7 @@ pub struct ProjectRepo {
 
 impl ProjectRepo {
     /// Attempts to guess at the upstream repo this project can be fetched from
-    pub fn new(config: &Config) -> CargoResult<ProjectRepo> {
+    pub fn new(config: &Config) -> CargoResult<Self> {
         let repo = Repository::discover(config.cwd())
             .chain_err(|| "Unable to determine git repo for this project")?;
 
@@ -131,7 +131,7 @@ impl ProjectRepo {
             .target()
             .ok_or_else(|| anyhow!("Unable to resolve HEAD to a commit"))?;
 
-        Ok(ProjectRepo {
+        Ok(Self {
             uri,
             branch: branch.to_string(),
             rev: rev.to_string(),
@@ -150,7 +150,7 @@ impl ProjectRepo {
         // walk through all the tags and resolve them to their commitish
         // return true if we find a tag that matches our revision
         tags.iter()
-            .filter_map(|tag| tag)
+            .flatten()
             .filter_map(|tag| repo.revparse_single(tag).ok())
             .filter_map(|tag| tag.peel(git2::ObjectType::Commit).ok())
             .any(|t| t.id() == *rev)

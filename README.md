@@ -10,7 +10,7 @@ project for [Yocto](https://yoctoproject.org)
 Install it with Cargo:
 
 ```
-$ cargo install cargo-bitbake
+$ cargo install --locked cargo-bitbake
 ```
 
 In its default mode, `cargo bitbake` will write the recipe for the

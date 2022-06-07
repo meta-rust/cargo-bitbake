@@ -236,7 +236,12 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
                 );
 
                 // save revision
-                src_uri_extras.push(format!("SRCREV_FORMAT .= \"_{}\"", pkg.name()));
+                if options.legacy_overrides {
+                    src_uri_extras.push(format!("SRCREV_FORMAT .= \"_{}\"", pkg.name()));
+                } else {
+                    src_uri_extras.push(format!("SRCREV_FORMAT .= \":{}\"", pkg.name()));
+                };
+                
 
                 let precise = if options.reproducible {
                     src_id.precise()

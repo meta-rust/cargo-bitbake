@@ -11,6 +11,7 @@ name = "cargo-bitbake"
 readme = "README.md"
 repository = "https://github.com/cardoe/cargo-bitbake"
 version = "0.3.16-alpha.0"
+rust-version = "1.60"
 
 [badges]
 is-it-maintained-issue-resolution = { repository = "cardoe/cargo-bitbake" }

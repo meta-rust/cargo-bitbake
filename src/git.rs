@@ -56,7 +56,7 @@ pub fn git_to_yocto_git_url(url: &str, name: Option<&str>, prefix: GitPrefix) ->
     // check if its a git@github.com:cardoe/cargo-bitbake.git style URL
     // and fix it up if it is
     let fixed_url = if SSH_STYLE_REMOTE.is_match(url) {
-        format!("ssh://{}", url.replace(":", "/"))
+        format!("ssh://{}", url.replace(':', "/"))
     } else {
         url.to_string()
     };

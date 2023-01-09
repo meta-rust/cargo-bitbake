@@ -20,6 +20,9 @@ local crate:
 $ cargo bitbake
 Wrote: cargo-bitbake_0.1.0.bb
 ```
+## Dependencies
+
+On Debian/Ubuntu, the package librust-cargo+openssl-dev is required (available via apt install).
 
 ## Parameter Mapping
 |  Yocto           |          Cargo              |

@@ -306,17 +306,14 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
     let homepage = metadata
         .homepage
         .as_ref()
-        .map_or_else(
-            || {
-                println!("No package.homepage set in your Cargo.toml, trying package.repository");
-                metadata
-                    .repository
-                    .as_ref()
-                    .ok_or_else(|| anyhow!("No package.repository set in your Cargo.toml"))
-            },
-            Ok,
-        )?
-        .trim();
+        .or_else(|| {
+            println!("No package.homepage set in your Cargo.toml, trying package.repository");
+            metadata.repository.as_ref().or_else(|| {
+                println!("No package.repository set in your Cargo.toml");
+                None
+            })
+        })
+        .map_or_else(String::new, |s| format!("HOMEPAGE = \"{}\"", s.trim()));
 
     // package license
     let license = metadata.license.as_ref().map_or_else(

@@ -27,36 +27,36 @@ lazy_static! {
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum GitPrefix {
+pub enum Prefix {
     Git,
     GitSubmodule,
 }
 
-impl Default for GitPrefix {
+impl Default for Prefix {
     fn default() -> Self {
         Self::Git
     }
 }
 
-impl Display for GitPrefix {
+impl Display for Prefix {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(
             f,
             "{}",
             match *self {
-                GitPrefix::Git => "git",
-                GitPrefix::GitSubmodule => "gitsm",
+                Self::Git => "git",
+                Self::GitSubmodule => "gitsm",
             }
         )
     }
 }
 
 /// converts a GIT URL to a Yocto GIT URL
-pub fn git_to_yocto_git_url(url: &str, name: Option<&str>, prefix: GitPrefix) -> String {
+pub fn git_to_yocto_git_url(url: &str, name: Option<&str>, prefix: Prefix) -> String {
     // check if its a git@github.com:cardoe/cargo-bitbake.git style URL
     // and fix it up if it is
     let fixed_url = if SSH_STYLE_REMOTE.is_match(url) {
-        format!("ssh://{}", url.replace(":", "/"))
+        format!("ssh://{}", url.replace(':', "/"))
     } else {
         url.to_string()
     };
@@ -105,9 +105,9 @@ impl ProjectRepo {
             .submodules()
             .context("Unable to determine the submodules")?;
         let prefix = if submodules.is_empty() {
-            GitPrefix::Git
+            Prefix::Git
         } else {
-            GitPrefix::GitSubmodule
+            Prefix::GitSubmodule
         };
 
         let uri = remote
@@ -164,7 +164,7 @@ mod test {
     #[test]
     fn remote_http() {
         let repo = "http://github.com/rust-lang/cargo.git";
-        let url = git_to_yocto_git_url(repo, Some("cargo"), GitPrefix::Git);
+        let url = git_to_yocto_git_url(repo, Some("cargo"), Prefix::Git);
         assert_eq!(url,
                 "git://github.com/rust-lang/cargo.git;protocol=http;nobranch=1;name=cargo;destsuffix=cargo");
     }
@@ -172,7 +172,7 @@ mod test {
     #[test]
     fn remote_https() {
         let repo = "https://github.com/rust-lang/cargo.git";
-        let url = git_to_yocto_git_url(repo, Some("cargo"), GitPrefix::Git);
+        let url = git_to_yocto_git_url(repo, Some("cargo"), Prefix::Git);
         assert_eq!(url,
                 "git://github.com/rust-lang/cargo.git;protocol=https;nobranch=1;name=cargo;destsuffix=cargo");
     }
@@ -180,7 +180,7 @@ mod test {
     #[test]
     fn remote_ssh() {
         let repo = "git@github.com:rust-lang/cargo.git";
-        let url = git_to_yocto_git_url(repo, Some("cargo"), GitPrefix::Git);
+        let url = git_to_yocto_git_url(repo, Some("cargo"), Prefix::Git);
         assert_eq!(url,
                 "git://git@github.com/rust-lang/cargo.git;protocol=ssh;nobranch=1;name=cargo;destsuffix=cargo");
     }
@@ -188,7 +188,7 @@ mod test {
     #[test]
     fn remote_http_nosuffix() {
         let repo = "http://github.com/rust-lang/cargo.git";
-        let url = git_to_yocto_git_url(repo, None, GitPrefix::Git);
+        let url = git_to_yocto_git_url(repo, None, Prefix::Git);
         assert_eq!(
             url,
             "git://github.com/rust-lang/cargo.git;protocol=http;nobranch=1"
@@ -198,7 +198,7 @@ mod test {
     #[test]
     fn remote_https_nosuffix() {
         let repo = "https://github.com/rust-lang/cargo.git";
-        let url = git_to_yocto_git_url(repo, None, GitPrefix::Git);
+        let url = git_to_yocto_git_url(repo, None, Prefix::Git);
         assert_eq!(
             url,
             "git://github.com/rust-lang/cargo.git;protocol=https;nobranch=1"
@@ -208,7 +208,7 @@ mod test {
     #[test]
     fn remote_ssh_nosuffix() {
         let repo = "git@github.com:rust-lang/cargo.git";
-        let url = git_to_yocto_git_url(repo, None, GitPrefix::Git);
+        let url = git_to_yocto_git_url(repo, None, Prefix::Git);
         assert_eq!(
             url,
             "git://git@github.com/rust-lang/cargo.git;protocol=ssh;nobranch=1"
@@ -218,7 +218,7 @@ mod test {
     #[test]
     fn cargo_http() {
         let repo = "http://github.com/rust-lang/cargo.git";
-        let url = git_to_yocto_git_url(repo, Some("cargo"), GitPrefix::Git);
+        let url = git_to_yocto_git_url(repo, Some("cargo"), Prefix::Git);
         assert_eq!(url,
                 "git://github.com/rust-lang/cargo.git;protocol=http;nobranch=1;name=cargo;destsuffix=cargo");
     }
@@ -226,7 +226,7 @@ mod test {
     #[test]
     fn cargo_https() {
         let repo = "https://github.com/rust-lang/cargo.git";
-        let url = git_to_yocto_git_url(repo, Some("cargo"), GitPrefix::Git);
+        let url = git_to_yocto_git_url(repo, Some("cargo"), Prefix::Git);
         assert_eq!(url,
                 "git://github.com/rust-lang/cargo.git;protocol=https;nobranch=1;name=cargo;destsuffix=cargo");
     }
@@ -234,7 +234,7 @@ mod test {
     #[test]
     fn cargo_ssh() {
         let repo = "ssh://git@github.com/rust-lang/cargo.git";
-        let url = git_to_yocto_git_url(repo, Some("cargo"), GitPrefix::Git);
+        let url = git_to_yocto_git_url(repo, Some("cargo"), Prefix::Git);
         assert_eq!(url,
                 "git://git@github.com/rust-lang/cargo.git;protocol=ssh;nobranch=1;name=cargo;destsuffix=cargo");
     }
@@ -242,7 +242,7 @@ mod test {
     #[test]
     fn remote_ssh_with_submodules() {
         let repo = "git@github.com:rust-lang/cargo.git";
-        let url = git_to_yocto_git_url(repo, Some("cargo"), GitPrefix::GitSubmodule);
+        let url = git_to_yocto_git_url(repo, Some("cargo"), Prefix::GitSubmodule);
         assert_eq!(url,
                 "gitsm://git@github.com/rust-lang/cargo.git;protocol=ssh;nobranch=1;name=cargo;destsuffix=cargo");
     }

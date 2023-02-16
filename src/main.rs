@@ -8,15 +8,6 @@
  * except according to those terms.
  */
 
-extern crate anyhow;
-extern crate cargo;
-extern crate clap;
-extern crate git2;
-extern crate itertools;
-extern crate lazy_static;
-extern crate md5;
-extern crate regex;
-
 use anyhow::{anyhow, Context as _};
 use cargo::core::registry::PackageRegistry;
 use cargo::core::resolver::features::HasDevUnits;

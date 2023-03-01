@@ -32,7 +32,7 @@ pub fn file(crate_root: &Path, rel_dir: &Path, license_name: &str, single_licens
     // that means this is closed source and there is no license
     // under which this is released. So special case it
     if license_name == CLOSED_LICENSE {
-        return "".into();
+        return String::new();
     }
 
     // if the license exists at the top level then

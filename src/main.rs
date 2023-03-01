@@ -8,15 +8,6 @@
  * except according to those terms.
  */
 
-extern crate anyhow;
-extern crate cargo;
-extern crate git2;
-extern crate itertools;
-extern crate lazy_static;
-extern crate md5;
-extern crate regex;
-extern crate structopt;
-
 use anyhow::{anyhow, Context as _};
 use cargo::core::registry::PackageRegistry;
 use cargo::core::resolver::features::HasDevUnits;
@@ -26,14 +17,13 @@ use cargo::core::{Package, PackageSet, Resolve, Workspace};
 use cargo::ops;
 use cargo::util::{important_paths, CargoResult};
 use cargo::{CliResult, Config};
+use clap::Parser;
 use itertools::Itertools;
 use std::default::Default;
 use std::env;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use structopt::clap::AppSettings;
-use structopt::StructOpt;
 
 mod git;
 mod license;
@@ -123,51 +113,51 @@ impl<'cfg> PackageInfo<'cfg> {
     }
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 struct Args {
     /// Silence all output
-    #[structopt(short = "q")]
+    #[arg(short)]
     quiet: bool,
 
     /// Verbose mode (-v, -vv, -vvv, etc.)
-    #[structopt(short = "v", parse(from_occurrences))]
-    verbose: usize,
+    #[arg(short, action = clap::ArgAction::Count)]
+    verbose: u8,
 
     /// Reproducible mode: Output exact git references for git projects
-    #[structopt(short = "R")]
+    #[arg(short = 'R')]
     reproducible: bool,
 
     /// Legacy Overrides: Use legacy override syntax
-    #[structopt(short = "l", long = "--legacy-overrides")]
+    #[arg(short, long)]
     legacy_overrides: bool,
 }
 
-#[derive(StructOpt, Debug)]
-#[structopt(
+#[derive(Parser, Debug)]
+#[command(
     name = "cargo-bitbake",
     bin_name = "cargo",
     author,
-    about = "Generates a BitBake recipe for a given Cargo project",
-    global_settings(&[AppSettings::ColoredHelp])
+    version,
+    about = "Generates a BitBake recipe for a given Cargo project"
 )]
 enum Opt {
     /// Generates a BitBake recipe for a given Cargo project
-    #[structopt(name = "bitbake")]
+    #[command(name = "bitbake", version)]
     Bitbake(Args),
 }
 
 fn main() {
     let mut config = Config::default().unwrap();
-    let Opt::Bitbake(opt) = Opt::from_args();
+    let Opt::Bitbake(opt) = Opt::parse();
     let result = real_main(opt, &mut config);
     if let Err(e) = result {
-        cargo::exit_with_error(e, &mut *config.shell());
+        cargo::exit_with_error(e, &mut config.shell());
     }
 }
 
 fn real_main(options: Args, config: &mut Config) -> CliResult {
     config.configure(
-        options.verbose as u32,
+        u32::from(options.verbose),
         options.quiet,
         /* color */
         None,
@@ -232,7 +222,7 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
                 let url = git::git_to_yocto_git_url(
                     src_id.url().as_str(),
                     Some(pkg.name().as_str()),
-                    git::GitPrefix::default(),
+                    git::Prefix::default(),
                 );
 
                 // save revision
@@ -252,14 +242,10 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
                         GitReference::Rev(ref s) => {
                             if s.len() == 40 {
                                 // avoid reduced hashes
-                                s
+                                s.as_str()
                             } else {
                                 let precise = src_id.precise();
-                                if let Some(p) = precise {
-                                    p
-                                } else {
-                                    panic!("cannot find rev in correct format!");
-                                }
+                                precise.expect("cannot find rev in correct format!")
                             }
                         }
                         GitReference::Branch(ref s) => {
@@ -299,7 +285,7 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
             println!("No package.description set in your Cargo.toml, using package.name");
             package.name()
         },
-        |s| cargo::util::interning::InternedString::new(&s.trim().replace("\n", " \\\n")),
+        |s| cargo::util::interning::InternedString::new(&s.trim().replace('\n', " \\\n")),
     );
 
     // package homepage (or source code location)
@@ -354,23 +340,28 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
     // attempt to figure out the git repo for this project
     let project_repo = git::ProjectRepo::new(config).unwrap_or_else(|e| {
         println!("{}", e);
-        Default::default()
+        git::ProjectRepo::default()
     });
 
     // if this is not a tag we need to include some data about the version in PV so that
     // the sstate cache remains valid
     let git_srcpv = if !project_repo.tag && project_repo.rev.len() > 10 {
-        let mut pv_append_key = "PV:append";
-        // Override PV override with legacy syntax if flagged
-        if options.legacy_overrides {
-            pv_append_key = "PV_append";
-        }
+        let pv_append_key = if options.legacy_overrides {
+            // Override PV override with legacy syntax if flagged
+            "PV_append"
+        } else {
+            "PV:append"
+        };
         // we should be using ${SRCPV} here but due to a bitbake bug we cannot. see:
         // https://github.com/meta-rust/meta-rust/issues/136
-        format!("{} = \".AUTOINC+{}\"", pv_append_key, &project_repo.rev[..10])
+        format!(
+            "{} = \".AUTOINC+{}\"",
+            pv_append_key,
+            &project_repo.rev[..10]
+        )
     } else {
         // its a tag so nothing needed
-        "".into()
+        String::new()
     };
 
     // build up the path

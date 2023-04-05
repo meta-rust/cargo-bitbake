@@ -18,11 +18,11 @@ extern crate regex;
 extern crate structopt;
 
 use anyhow::{anyhow, Context as _};
-use cargo::core::registry::PackageRegistry;
 use cargo::core::resolver::features::HasDevUnits;
-use cargo::core::resolver::CliFeatures;
+use cargo::core::resolver::{CliFeatures, ForceAllTargets};
 use cargo::core::source::GitReference;
-use cargo::core::{Package, PackageSet, Resolve, Workspace, PackageIdSpec};
+use cargo::core::compiler::{CompileKind, RustcTargetData, CompileTarget};
+use cargo::core::{Package, Workspace, PackageIdSpec, PackageId};
 use cargo::ops;
 use cargo::util::{important_paths, CargoResult};
 use cargo::{CliResult, Config};
@@ -66,43 +66,66 @@ impl<'cfg> PackageInfo<'cfg> {
         self.ws.current()
     }
 
-    /// Generates a package registry by using the Cargo.lock or
-    /// creating one as necessary
-    fn registry(&self) -> CargoResult<PackageRegistry<'cfg>> {
-        let mut registry = PackageRegistry::new(self.cfg)?;
-        let package = self.package()?;
-        registry.add_sources(vec![package.package_id().source_id()])?;
-        Ok(registry)
-    }
-
     /// Resolve the packages necessary for the workspace
-    fn resolve(&self) -> CargoResult<(PackageSet<'cfg>, Resolve)> {
-        // build up our registry
-        let mut registry = self.registry()?;
+    fn resolve(&self) -> CargoResult<Vec<PackageId>> {
+        let pkgids = [PackageIdSpec::from_package_id(self.package()?.package_id())];
 
-        // resolve our dependencies
-        let (packages, resolve) = ops::resolve_ws(&self.ws)?;
+        let target_platform = "x86_64-unknown-linux-gnu";
+        let target_kinds = [
+            CompileKind::Target(CompileTarget::new(target_platform)?),
+        ];
+        let target_data = RustcTargetData::new(&self.ws, &target_kinds)?;
+        let target_cfg = target_data.cfg(target_kinds[0]);
+        println!("target_platform: {:?}", target_platform);
+        println!("target_cfg: {:?}", target_cfg);
 
-        let pkgid = PackageIdSpec::from_package_id(self.package()?.package_id());
-
-        // resolve with all features set so we ensure we get all of the depends downloaded
-        let resolve = ops::resolve_with_previous(
-            &mut registry,
+        let ws_resolve = ops::resolve_ws_with_opts(
             &self.ws,
-            /* resolve it all */
-            &CliFeatures::new_all(true),
+            &target_data,
+            &target_kinds,
+            &CliFeatures::new_all(false),
+            &pkgids,
             HasDevUnits::No,
-            /* previous */
-            Some(&resolve),
-            /* don't avoid any */
-            None,
-            /* specs */
-            &[pkgid],
-            /* warn? */
-            true,
+            ForceAllTargets::No,
         )?;
 
-        Ok((packages, resolve))
+        let mut filtered_package_ids: Vec<PackageId> = Vec::new();
+        let mut to_process_deps_of: Vec<PackageId> = Vec::new();
+
+        for root_pkg_id_spec in pkgids {
+            let root_pkg_id = root_pkg_id_spec.query(ws_resolve.pkg_set.package_ids()).unwrap();
+            ws_resolve.targeted_resolve.deps(root_pkg_id).for_each(|(sub_id, deps)| {
+                if !filtered_package_ids.contains(&sub_id) {
+                    if deps.iter().any(|dep| {
+                        dep.platform().map_or(true, |platform| platform.matches(target_platform, target_cfg))
+                    }) {
+                        to_process_deps_of.push(sub_id);
+                        filtered_package_ids.push(sub_id);   
+                    }
+                }
+            });
+        }
+
+        while to_process_deps_of.len() > 0 {
+            let todo = to_process_deps_of.clone();
+            to_process_deps_of.clear();
+            for pkg_id in todo {
+                ws_resolve.targeted_resolve.deps(pkg_id).for_each(|(sub_id, deps)| {
+                    if !filtered_package_ids.contains(&sub_id) {
+                        if deps.iter().any(|dep| {
+                            dep.platform().map_or(true, |platform| {
+                                platform.matches(target_platform, target_cfg)
+                            })
+                        }) {
+                            to_process_deps_of.push(sub_id);
+                            filtered_package_ids.push(sub_id);   
+                        }
+                    }
+                });
+            }
+        }
+
+        Ok(filtered_package_ids)
     }
 
     /// packages that are part of a workspace are a sub directory from the
@@ -207,7 +230,6 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
     // build the crate URIs
     let mut src_uri_extras = vec![];
     let mut src_uris = resolve
-        .1
         .iter()
         .filter_map(|pkg| {
             // get the source info for this package

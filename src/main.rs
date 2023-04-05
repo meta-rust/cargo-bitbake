@@ -22,7 +22,7 @@ use cargo::core::registry::PackageRegistry;
 use cargo::core::resolver::features::HasDevUnits;
 use cargo::core::resolver::CliFeatures;
 use cargo::core::source::GitReference;
-use cargo::core::{Package, PackageSet, Resolve, Workspace};
+use cargo::core::{Package, PackageSet, Resolve, Workspace, PackageIdSpec};
 use cargo::ops;
 use cargo::util::{important_paths, CargoResult};
 use cargo::{CliResult, Config};
@@ -83,6 +83,8 @@ impl<'cfg> PackageInfo<'cfg> {
         // resolve our dependencies
         let (packages, resolve) = ops::resolve_ws(&self.ws)?;
 
+        let pkgid = PackageIdSpec::from_package_id(self.package()?.package_id());
+
         // resolve with all features set so we ensure we get all of the depends downloaded
         let resolve = ops::resolve_with_previous(
             &mut registry,
@@ -95,7 +97,7 @@ impl<'cfg> PackageInfo<'cfg> {
             /* don't avoid any */
             None,
             /* specs */
-            &[],
+            &[pkgid],
             /* warn? */
             true,
         )?;

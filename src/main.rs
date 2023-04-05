@@ -70,6 +70,7 @@ impl<'cfg> PackageInfo<'cfg> {
     fn resolve(&self) -> CargoResult<Vec<PackageId>> {
         let pkgids = [PackageIdSpec::from_package_id(self.package()?.package_id())];
 
+        // TODO: Make a list of all the bitbake-relevant platforms and/or add a commandline argument for specifying them.
         let target_platform = "x86_64-unknown-linux-gnu";
         let target_kinds = [
             CompileKind::Target(CompileTarget::new(target_platform)?),

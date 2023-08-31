@@ -75,6 +75,11 @@ impl<'cfg> PackageInfo<'cfg> {
         Ok(registry)
     }
 
+    /// Loads the set of packages from a lockfile.
+    fn load_from_lockfile(&self) -> CargoResult<Option<Resolve>> {
+	cargo::ops::load_pkg_lockfile(&self.ws)
+    }
+
     /// Resolve the packages necessary for the workspace
     fn resolve(&self) -> CargoResult<(PackageSet<'cfg>, Resolve)> {
         // build up our registry
@@ -140,6 +145,13 @@ struct Args {
     /// Legacy Overrides: Use legacy override syntax
     #[structopt(short = "l", long = "--legacy-overrides")]
     legacy_overrides: bool,
+
+    /// Require that a lockfile exists, and use it exclusively when
+    /// resolving what crates to put into the generated .bb recipe.
+    /// This command will fail if you don't already have a `Cargo.lock`
+    /// file for the project.
+    #[structopt(long)]
+    require_lockfile: bool,
 }
 
 #[derive(StructOpt, Debug)]
@@ -199,13 +211,22 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
         println!("Package name contains an underscore");
     }
 
-    // Resolve all dependencies (generate or use Cargo.lock as necessary)
-    let resolve = md.resolve()?;
+    // If require lockfile was passed, pull dependencies from the
+    // existing lockfile and skip the resolution step.
+    let resolve = if options.require_lockfile {
+	md.load_from_lockfile()?.ok_or(anyhow::format_err!(
+	    "--use-lockfile was passed, but no lockfile was found"
+	))?
+    } else {
+	// Otherwise, resolve all dependencies. If a Cargo.lock file
+	// already exists, use it as a guide while performing resolution
+	// and generate or use Cargo.lock as necessary.
+	md.resolve()?.1
+    };
 
     // build the crate URIs
     let mut src_uri_extras = vec![];
     let mut src_uris = resolve
-        .1
         .iter()
         .filter_map(|pkg| {
             // get the source info for this package

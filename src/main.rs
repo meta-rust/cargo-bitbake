@@ -22,7 +22,7 @@ use cargo::core::registry::PackageRegistry;
 use cargo::core::resolver::features::HasDevUnits;
 use cargo::core::resolver::CliFeatures;
 use cargo::core::source::GitReference;
-use cargo::core::{Package, PackageSet, Resolve, Workspace};
+use cargo::core::{Package, PackageSet, Resolve, Workspace, PackageId};
 use cargo::ops;
 use cargo::util::{important_paths, CargoResult};
 use cargo::{CliResult, Config};
@@ -123,6 +123,14 @@ impl<'cfg> PackageInfo<'cfg> {
     }
 }
 
+fn get_checksum(package_set: &PackageSet, pkg_id: PackageId) -> String {
+    match package_set.get_one(pkg_id).map(|pkg| pkg.summary().checksum()) {
+	Err(_) | Ok(None)	=> "".to_string(),
+	Ok(Some(crc))		=> format!(";sha256sum={crc};{}-{}.sha256sum={crc}",
+					   pkg_id.name(), pkg_id.version()),
+    }
+}
+
 #[derive(StructOpt, Debug)]
 struct Args {
     /// Silence all output
@@ -201,6 +209,7 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
 
     // Resolve all dependencies (generate or use Cargo.lock as necessary)
     let resolve = md.resolve()?;
+    let package_set = resolve.0;
 
     // build the crate URIs
     let mut src_uri_extras = vec![];
@@ -215,10 +224,11 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
             } else if src_id.is_registry() {
                 // this package appears in a crate registry
                 Some(format!(
-                    "    crate://{}/{}/{} \\\n",
+                    "    crate://{}/{}/{}{} \\\n",
                     CRATES_IO_URL,
                     pkg.name(),
-                    pkg.version()
+                    pkg.version(),
+		    get_checksum(&package_set, pkg)
                 ))
             } else if src_id.is_path() {
                 // we don't want to spit out path based

@@ -161,7 +161,7 @@ fn main() {
     let Opt::Bitbake(opt) = Opt::from_args();
     let result = real_main(opt, &mut gctx);
     if let Err(e) = result {
-        cargo::exit_with_error(e, &mut *gctx.shell());
+        cargo::exit_with_error(e, &mut gctx.shell());
     }
 }
 
@@ -299,7 +299,7 @@ fn real_main(options: Args, gctx: &mut GlobalContext) -> CliResult {
             println!("No package.description set in your Cargo.toml, using package.name");
             package.name()
         },
-        |s| cargo::util::interning::InternedString::new(&s.trim().replace("\n", " \\\n")),
+        |s| cargo::util::interning::InternedString::new(&s.trim().replace('\n', " \\\n")),
     );
 
     // package homepage (or source code location)

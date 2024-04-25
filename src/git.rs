@@ -56,7 +56,7 @@ pub fn git_to_yocto_git_url(url: &str, name: Option<&str>, prefix: GitPrefix) ->
     // check if its a git@github.com:cardoe/cargo-bitbake.git style URL
     // and fix it up if it is
     let fixed_url = if SSH_STYLE_REMOTE.is_match(url) {
-        format!("ssh://{}", url.replace(":", "/"))
+        format!("ssh://{}", url.replace(':', "/"))
     } else {
         url.to_string()
     };
@@ -86,7 +86,6 @@ pub fn git_to_yocto_git_url(url: &str, name: Option<&str>, prefix: GitPrefix) ->
 #[derive(Debug, Default)]
 pub struct ProjectRepo {
     pub uri: String,
-    pub branch: String,
     pub rev: String,
     pub tag: bool,
 }
@@ -133,7 +132,6 @@ impl ProjectRepo {
 
         Ok(Self {
             uri,
-            branch: branch.to_string(),
             rev: rev.to_string(),
             tag: Self::rev_is_tag(&repo, &rev),
         })

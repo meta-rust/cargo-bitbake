@@ -22,7 +22,7 @@ use cargo::core::registry::PackageRegistry;
 use cargo::core::resolver::features::HasDevUnits;
 use cargo::core::resolver::CliFeatures;
 use cargo::core::GitReference;
-use cargo::core::{Package, PackageSet, Resolve, Workspace, PackageId};
+use cargo::core::{Package, PackageId, PackageSet, Resolve, Workspace};
 use cargo::ops;
 use cargo::util::{important_paths, CargoResult};
 use cargo::{CliResult, GlobalContext};
@@ -125,10 +125,16 @@ impl<'gctx> PackageInfo<'gctx> {
 }
 
 fn get_checksum(package_set: &PackageSet, pkg_id: PackageId) -> String {
-    match package_set.get_one(pkg_id).map(|pkg| pkg.summary().checksum()) {
-	Err(_) | Ok(None)	=> "".to_string(),
-	Ok(Some(crc))		=> format!(";sha256sum={crc};{}-{}.sha256sum={crc}",
-					   pkg_id.name(), pkg_id.version()),
+    match package_set
+        .get_one(pkg_id)
+        .map(|pkg| pkg.summary().checksum())
+    {
+        Err(_) | Ok(None) => "".to_string(),
+        Ok(Some(crc)) => format!(
+            ";sha256sum={crc};{}-{}.sha256sum={crc}",
+            pkg_id.name(),
+            pkg_id.version()
+        ),
     }
 }
 
@@ -229,7 +235,7 @@ fn real_main(options: Args, gctx: &mut GlobalContext) -> CliResult {
                     CRATES_IO_URL,
                     pkg.name(),
                     pkg.version(),
-		    get_checksum(&package_set, pkg)
+                    get_checksum(&package_set, pkg)
                 ))
             } else if src_id.is_path() {
                 // we don't want to spit out path based
@@ -378,7 +384,11 @@ fn real_main(options: Args, gctx: &mut GlobalContext) -> CliResult {
         }
         // we should be using ${SRCPV} here but due to a bitbake bug we cannot. see:
         // https://github.com/meta-rust/meta-rust/issues/136
-        format!("{} = \".AUTOINC+{}\"", pv_append_key, &project_repo.rev[..10])
+        format!(
+            "{} = \".AUTOINC+{}\"",
+            pv_append_key,
+            &project_repo.rev[..10]
+        )
     } else {
         // its a tag so nothing needed
         "".into()

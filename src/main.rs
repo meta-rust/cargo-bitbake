@@ -21,8 +21,7 @@ use anyhow::{anyhow, Context as _};
 use cargo::core::registry::PackageRegistry;
 use cargo::core::resolver::features::HasDevUnits;
 use cargo::core::resolver::CliFeatures;
-use cargo::core::GitReference;
-use cargo::core::{Package, PackageId, PackageSet, Resolve, Workspace};
+use cargo::core::{GitReference, Package, PackageId, PackageSet, Resolve, Workspace};
 use cargo::ops;
 use cargo::util::{important_paths, CargoResult};
 use cargo::{CliResult, GlobalContext};
@@ -152,8 +151,12 @@ struct Args {
     #[structopt(short = "R")]
     reproducible: bool,
 
+    /// Don't emit inline checksums
+    #[structopt(short = "c", long)]
+    no_checksums: bool,
+
     /// Legacy Overrides: Use legacy override syntax
-    #[structopt(short = "l", long = "--legacy-overrides")]
+    #[structopt(short, long)]
     legacy_overrides: bool,
 }
 
@@ -230,13 +233,23 @@ fn real_main(options: Args, gctx: &mut GlobalContext) -> CliResult {
                 None
             } else if src_id.is_registry() {
                 // this package appears in a crate registry
-                Some(format!(
-                    "    crate://{}/{}/{}{} \\\n",
-                    CRATES_IO_URL,
-                    pkg.name(),
-                    pkg.version(),
-                    get_checksum(&package_set, pkg)
-                ))
+                if options.no_checksums  {
+                    Some(format!(
+                        "    crate://{}/{}/{} \\\n",
+                        CRATES_IO_URL,
+                        pkg.name(),
+                        pkg.version()
+                    ))
+                }
+                else {
+                    Some(format!(
+                        "    crate://{}/{}/{}{} \\\n",
+                        CRATES_IO_URL,
+                        pkg.name(),
+                        pkg.version(),
+                        get_checksum(&package_set, pkg)
+                    ))
+                }
             } else if src_id.is_path() {
                 // we don't want to spit out path based
                 // entries since they're within the crate

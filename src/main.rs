@@ -21,7 +21,7 @@ use anyhow::{anyhow, Context as _};
 use cargo::core::registry::PackageRegistry;
 use cargo::core::resolver::features::HasDevUnits;
 use cargo::core::resolver::CliFeatures;
-use cargo::core::source::GitReference;
+use cargo::core::GitReference;
 use cargo::core::{Package, PackageSet, Resolve, Workspace, PackageId};
 use cargo::ops;
 use cargo::util::{important_paths, CargoResult};
@@ -97,7 +97,7 @@ impl<'ctx> PackageInfo<'ctx> {
             /* specs */
             &[],
             /* warn? */
-            true,
+            true
         )?;
 
         Ok((packages, resolve))
@@ -249,13 +249,13 @@ fn real_main(options: Args, ctx: &mut GlobalContext) -> CliResult {
                 src_uri_extras.push(format!("SRCREV_FORMAT .= \"_{}\"", pkg.name()));
 
                 let precise = if options.reproducible {
-                    src_id.precise()
+                    src_id.precise_git_fragment()
                 } else {
                     None
                 };
 
                 let rev = if let Some(precise) = precise {
-                    precise
+                    precise.to_string()
                 } else {
                     match *src_id.git_reference()? {
                         GitReference::Tag(ref s) => s,
@@ -270,7 +270,7 @@ fn real_main(options: Args, ctx: &mut GlobalContext) -> CliResult {
                             }
                         }
                         GitReference::DefaultBranch => "${AUTOREV}",
-                    }
+                    }.to_string()
                 };
 
                 src_uri_extras.push(format!("SRCREV_{} = \"{}\"", pkg.name(), rev));

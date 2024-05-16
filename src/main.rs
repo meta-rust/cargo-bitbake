@@ -41,21 +41,21 @@ mod license;
 const CRATES_IO_URL: &str = "crates.io";
 
 /// Represents the package we are trying to generate a recipe for
-struct PackageInfo<'cfg> {
-    cfg: &'cfg GlobalContext,
+struct PackageInfo<'ctx> {
+    ctx: &'ctx GlobalContext,
     current_manifest: PathBuf,
-    ws: Workspace<'cfg>,
+    ws: Workspace<'ctx>,
 }
 
-impl<'cfg> PackageInfo<'cfg> {
+impl<'ctx> PackageInfo<'ctx> {
     /// creates our package info from the config and the `manifest_path`,
     /// which may not be provided
-    fn new(config: &GlobalContext, manifest_path: Option<String>) -> CargoResult<PackageInfo> {
-        let manifest_path = manifest_path.map_or_else(|| config.cwd().to_path_buf(), PathBuf::from);
+    fn new(ctx: &GlobalContext, manifest_path: Option<String>) -> CargoResult<PackageInfo> {
+        let manifest_path = manifest_path.map_or_else(|| ctx.cwd().to_path_buf(), PathBuf::from);
         let root = important_paths::find_root_manifest_for_wd(&manifest_path)?;
-        let ws = Workspace::new(&root, config)?;
+        let ws = Workspace::new(&root, ctx)?;
         Ok(PackageInfo {
-            cfg: config,
+            ctx,
             current_manifest: root,
             ws,
         })
@@ -68,15 +68,15 @@ impl<'cfg> PackageInfo<'cfg> {
 
     /// Generates a package registry by using the Cargo.lock or
     /// creating one as necessary
-    fn registry(&self) -> CargoResult<PackageRegistry<'cfg>> {
-        let mut registry = PackageRegistry::new(self.cfg)?;
+    fn registry(&self) -> CargoResult<PackageRegistry<'ctx>> {
+        let mut registry = PackageRegistry::new(self.ctx)?;
         let package = self.package()?;
         registry.add_sources(vec![package.package_id().source_id()])?;
         Ok(registry)
     }
 
     /// Resolve the packages necessary for the workspace
-    fn resolve(&self) -> CargoResult<(PackageSet<'cfg>, Resolve)> {
+    fn resolve(&self) -> CargoResult<(PackageSet<'ctx>, Resolve)> {
         // build up our registry
         let mut registry = self.registry()?;
 
@@ -165,16 +165,16 @@ enum Opt {
 }
 
 fn main() {
-    let mut config = GlobalContext::default().unwrap();
+    let mut ctx = GlobalContext::default().unwrap();
     let Opt::Bitbake(opt) = Opt::from_args();
-    let result = real_main(opt, &mut config);
+    let result = real_main(opt, &mut ctx);
     if let Err(e) = result {
-        cargo::exit_with_error(e, &mut *config.shell());
+        cargo::exit_with_error(e, &mut *ctx.shell());
     }
 }
 
-fn real_main(options: Args, config: &mut GlobalContext) -> CliResult {
-    config.configure(
+fn real_main(options: Args, ctx: &mut GlobalContext) -> CliResult {
+    ctx.configure(
         options.verbose as u32,
         options.quiet,
         /* color */
@@ -194,7 +194,7 @@ fn real_main(options: Args, config: &mut GlobalContext) -> CliResult {
     )?;
 
     // Build up data about the package we are attempting to generate a recipe for
-    let md = PackageInfo::new(config, None)?;
+    let md = PackageInfo::new(ctx, None)?;
 
     // Our current package
     let package = md.package()?;
@@ -362,7 +362,7 @@ fn real_main(options: Args, config: &mut GlobalContext) -> CliResult {
     let license = license.split('/').map(str::trim).join(" | ");
 
     // attempt to figure out the git repo for this project
-    let project_repo = git::ProjectRepo::new(config).unwrap_or_else(|e| {
+    let project_repo = git::ProjectRepo::new(ctx).unwrap_or_else(|e| {
         println!("{}", e);
         Default::default()
     });

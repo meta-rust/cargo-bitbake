@@ -93,8 +93,8 @@ pub struct ProjectRepo {
 
 impl ProjectRepo {
     /// Attempts to guess at the upstream repo this project can be fetched from
-    pub fn new(config: &GlobalContext) -> CargoResult<Self> {
-        let repo = Repository::discover(config.cwd())
+    pub fn new(ctx: &GlobalContext) -> CargoResult<Self> {
+        let repo = Repository::discover(ctx.cwd())
             .context("Unable to determine git repo for this project")?;
 
         let remote = repo

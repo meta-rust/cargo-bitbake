@@ -259,19 +259,9 @@ fn real_main(options: Args, ctx: &mut GlobalContext) -> CliResult {
                 } else {
                     match *src_id.git_reference()? {
                         GitReference::Tag(ref s) => s,
-                        GitReference::Rev(ref s) => {
-                            if s.len() == 40 {
-                                // avoid reduced hashes
-                                s
-                            } else {
-                                let precise = src_id.precise();
-                                if let Some(p) = precise {
-                                    p
-                                } else {
-                                    panic!("cannot find rev in correct format!");
-                                }
-                            }
-                        }
+                        GitReference::Rev(ref s) if s.len() == 40 => s,
+			GitReference::Rev(_) =>
+			    panic!("cannot find rev in correct format!"),
                         GitReference::Branch(ref s) => {
                             if s == "master" {
                                 "${AUTOREV}"

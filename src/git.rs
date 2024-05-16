@@ -10,7 +10,7 @@
 
 use anyhow::{anyhow, Context as _};
 use cargo::util::CargoResult;
-use cargo::Config;
+use cargo::GlobalContext;
 use git2::{self, Repository};
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -93,7 +93,7 @@ pub struct ProjectRepo {
 
 impl ProjectRepo {
     /// Attempts to guess at the upstream repo this project can be fetched from
-    pub fn new(config: &Config) -> CargoResult<Self> {
+    pub fn new(config: &GlobalContext) -> CargoResult<Self> {
         let repo = Repository::discover(config.cwd())
             .context("Unable to determine git repo for this project")?;
 

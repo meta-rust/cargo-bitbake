@@ -200,14 +200,24 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
     }
 
     // Resolve all dependencies (generate or use Cargo.lock as necessary)
-    let resolve = md.resolve()?;
+    let resolve = md.resolve()?.1;
+    let pkg_checksums = resolve.checksums();
 
     // build the crate URIs
     let mut src_uri_extras = vec![];
     let mut src_uris = resolve
-        .1
         .iter()
         .filter_map(|pkg| {
+            if let Some(Some(chksum)) = pkg_checksums.get(&pkg) {
+                src_uri_extras.push(
+                    format!(
+                        "SRC_URI[{name}-{version}.sha256sum] = \"{chksum}\"",
+                        name = pkg.name(),
+                        version = pkg.version(),
+                    )
+                );
+            }
+
             // get the source info for this package
             let src_id = pkg.source_id();
             if pkg.name() == package.name() {

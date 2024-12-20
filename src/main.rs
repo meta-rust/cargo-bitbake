@@ -21,11 +21,11 @@ use anyhow::{anyhow, Context as _};
 use cargo::core::registry::PackageRegistry;
 use cargo::core::resolver::features::HasDevUnits;
 use cargo::core::resolver::CliFeatures;
-use cargo::core::source::GitReference;
+use cargo::core::GitReference;
 use cargo::core::{Package, PackageSet, Resolve, Workspace};
 use cargo::ops;
 use cargo::util::{important_paths, CargoResult};
-use cargo::{CliResult, Config};
+use cargo::{CliResult, GlobalContext};
 use itertools::Itertools;
 use std::default::Default;
 use std::env;
@@ -41,21 +41,21 @@ mod license;
 const CRATES_IO_URL: &str = "crates.io";
 
 /// Represents the package we are trying to generate a recipe for
-struct PackageInfo<'cfg> {
-    cfg: &'cfg Config,
+struct PackageInfo<'gctx> {
+    _gctx: &'gctx GlobalContext,
     current_manifest: PathBuf,
-    ws: Workspace<'cfg>,
+    ws: Workspace<'gctx>,
 }
 
-impl<'cfg> PackageInfo<'cfg> {
-    /// creates our package info from the config and the `manifest_path`,
-    /// which may not be provided
-    fn new(config: &Config, manifest_path: Option<String>) -> CargoResult<PackageInfo> {
-        let manifest_path = manifest_path.map_or_else(|| config.cwd().to_path_buf(), PathBuf::from);
+impl<'gctx> PackageInfo<'gctx> {
+    /// creates our package info from the global context and the
+    /// `manifest_path`, which may not be provided
+    fn new(gctx: &GlobalContext, manifest_path: Option<String>) -> CargoResult<PackageInfo> {
+        let manifest_path = manifest_path.map_or_else(|| gctx.cwd().to_path_buf(), PathBuf::from);
         let root = important_paths::find_root_manifest_for_wd(&manifest_path)?;
-        let ws = Workspace::new(&root, config)?;
+        let ws = Workspace::new(&root, gctx)?;
         Ok(PackageInfo {
-            cfg: config,
+            _gctx: gctx,
             current_manifest: root,
             ws,
         })
@@ -68,20 +68,21 @@ impl<'cfg> PackageInfo<'cfg> {
 
     /// Generates a package registry by using the Cargo.lock or
     /// creating one as necessary
-    fn registry(&self) -> CargoResult<PackageRegistry<'cfg>> {
-        let mut registry = PackageRegistry::new(self.cfg)?;
+    fn registry(&self) -> CargoResult<PackageRegistry<'gctx>> {
+        let mut registry = self.ws.package_registry()?;
         let package = self.package()?;
         registry.add_sources(vec![package.package_id().source_id()])?;
         Ok(registry)
     }
 
     /// Resolve the packages necessary for the workspace
-    fn resolve(&self) -> CargoResult<(PackageSet<'cfg>, Resolve)> {
+    fn resolve(&self) -> CargoResult<(PackageSet<'gctx>, Resolve)> {
         // build up our registry
         let mut registry = self.registry()?;
 
         // resolve our dependencies
-        let (packages, resolve) = ops::resolve_ws(&self.ws)?;
+        let dry_run = false;
+        let (packages, resolve) = ops::resolve_ws(&self.ws, dry_run)?;
 
         // resolve with all features set so we ensure we get all of the depends downloaded
         let resolve = ops::resolve_with_previous(
@@ -157,16 +158,16 @@ enum Opt {
 }
 
 fn main() {
-    let mut config = Config::default().unwrap();
+    let mut gctx = GlobalContext::default().unwrap();
     let Opt::Bitbake(opt) = Opt::from_args();
-    let result = real_main(opt, &mut config);
+    let result = real_main(opt, &mut gctx);
     if let Err(e) = result {
-        cargo::exit_with_error(e, &mut *config.shell());
+        cargo::exit_with_error(e, &mut *gctx.shell());
     }
 }
 
-fn real_main(options: Args, config: &mut Config) -> CliResult {
-    config.configure(
+fn real_main(options: Args, gctx: &mut GlobalContext) -> CliResult {
+    gctx.configure(
         options.verbose as u32,
         options.quiet,
         /* color */
@@ -186,7 +187,7 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
     )?;
 
     // Build up data about the package we are attempting to generate a recipe for
-    let md = PackageInfo::new(config, None)?;
+    let md = PackageInfo::new(gctx, None)?;
 
     // Our current package
     let package = md.package()?;
@@ -239,7 +240,7 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
                 src_uri_extras.push(format!("SRCREV_FORMAT .= \"_{}\"", pkg.name()));
 
                 let precise = if options.reproducible {
-                    src_id.precise()
+                    src_id.precise_git_fragment()
                 } else {
                     None
                 };
@@ -254,7 +255,7 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
                                 // avoid reduced hashes
                                 s
                             } else {
-                                let precise = src_id.precise();
+                                let precise = src_id.precise_git_fragment();
                                 if let Some(p) = precise {
                                     p
                                 } else {
@@ -352,7 +353,7 @@ fn real_main(options: Args, config: &mut Config) -> CliResult {
     let license = license.split('/').map(str::trim).join(" | ");
 
     // attempt to figure out the git repo for this project
-    let project_repo = git::ProjectRepo::new(config).unwrap_or_else(|e| {
+    let project_repo = git::ProjectRepo::new(gctx).unwrap_or_else(|e| {
         println!("{}", e);
         Default::default()
     });

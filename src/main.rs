@@ -21,8 +21,7 @@ use anyhow::{anyhow, Context as _};
 use cargo::core::registry::PackageRegistry;
 use cargo::core::resolver::features::HasDevUnits;
 use cargo::core::resolver::CliFeatures;
-use cargo::core::GitReference;
-use cargo::core::{Package, PackageSet, Resolve, Workspace};
+use cargo::core::{GitReference, Package, PackageId, PackageSet, Resolve, Workspace};
 use cargo::ops;
 use cargo::util::{important_paths, CargoResult};
 use cargo::{CliResult, GlobalContext};
@@ -124,6 +123,20 @@ impl<'gctx> PackageInfo<'gctx> {
     }
 }
 
+fn get_checksum(package_set: &PackageSet, pkg_id: PackageId) -> String {
+    match package_set
+        .get_one(pkg_id)
+        .map(|pkg| pkg.summary().checksum())
+    {
+        Err(_) | Ok(None) => "".to_string(),
+        Ok(Some(crc)) => format!(
+            ";sha256sum={crc};{}-{}.sha256sum={crc}",
+            pkg_id.name(),
+            pkg_id.version()
+        ),
+    }
+}
+
 #[derive(StructOpt, Debug)]
 struct Args {
     /// Silence all output
@@ -138,8 +151,12 @@ struct Args {
     #[structopt(short = "R")]
     reproducible: bool,
 
+    /// Don't emit inline checksums
+    #[structopt(short = "c", long)]
+    no_checksums: bool,
+
     /// Legacy Overrides: Use legacy override syntax
-    #[structopt(short = "l", long = "--legacy-overrides")]
+    #[structopt(short, long)]
     legacy_overrides: bool,
 }
 
@@ -162,7 +179,7 @@ fn main() {
     let Opt::Bitbake(opt) = Opt::from_args();
     let result = real_main(opt, &mut gctx);
     if let Err(e) = result {
-        cargo::exit_with_error(e, &mut *gctx.shell());
+        cargo::exit_with_error(e, &mut gctx.shell());
     }
 }
 
@@ -202,6 +219,7 @@ fn real_main(options: Args, gctx: &mut GlobalContext) -> CliResult {
 
     // Resolve all dependencies (generate or use Cargo.lock as necessary)
     let resolve = md.resolve()?;
+    let package_set = resolve.0;
 
     // build the crate URIs
     let mut src_uri_extras = vec![];
@@ -215,12 +233,23 @@ fn real_main(options: Args, gctx: &mut GlobalContext) -> CliResult {
                 None
             } else if src_id.is_registry() {
                 // this package appears in a crate registry
-                Some(format!(
-                    "    crate://{}/{}/{} \\\n",
-                    CRATES_IO_URL,
-                    pkg.name(),
-                    pkg.version()
-                ))
+                if options.no_checksums  {
+                    Some(format!(
+                        "    crate://{}/{}/{} \\\n",
+                        CRATES_IO_URL,
+                        pkg.name(),
+                        pkg.version()
+                    ))
+                }
+                else {
+                    Some(format!(
+                        "    crate://{}/{}/{}{} \\\n",
+                        CRATES_IO_URL,
+                        pkg.name(),
+                        pkg.version(),
+                        get_checksum(&package_set, pkg)
+                    ))
+                }
             } else if src_id.is_path() {
                 // we don't want to spit out path based
                 // entries since they're within the crate
@@ -300,7 +329,7 @@ fn real_main(options: Args, gctx: &mut GlobalContext) -> CliResult {
             println!("No package.description set in your Cargo.toml, using package.name");
             package.name()
         },
-        |s| cargo::util::interning::InternedString::new(&s.trim().replace("\n", " \\\n")),
+        |s| cargo::util::interning::InternedString::new(&s.trim().replace('\n', " \\\n")),
     );
 
     // package homepage (or source code location)
@@ -368,7 +397,11 @@ fn real_main(options: Args, gctx: &mut GlobalContext) -> CliResult {
         }
         // we should be using ${SRCPV} here but due to a bitbake bug we cannot. see:
         // https://github.com/meta-rust/meta-rust/issues/136
-        format!("{} = \".AUTOINC+{}\"", pv_append_key, &project_repo.rev[..10])
+        format!(
+            "{} = \".AUTOINC+{}\"",
+            pv_append_key,
+            &project_repo.rev[..10]
+        )
     } else {
         // its a tag so nothing needed
         "".into()

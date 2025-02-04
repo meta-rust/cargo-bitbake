@@ -141,6 +141,16 @@ struct Args {
     /// Legacy Overrides: Use legacy override syntax
     #[structopt(short = "l", long = "--legacy-overrides")]
     legacy_overrides: bool,
+
+    /// Space or comma separated list of Cargo features to activate
+    #[structopt(long = "--features")]
+    features: Option<String>,
+    /// Activate all available Cargo features
+    #[structopt(long = "--all-features")]
+    all_features: bool,
+    /// Do not activate the Cargo `default` features
+    #[structopt(long = "--no-default-features")]
+    no_default_features: bool,
 }
 
 #[derive(StructOpt, Debug)]
@@ -300,7 +310,7 @@ fn real_main(options: Args, gctx: &mut GlobalContext) -> CliResult {
             println!("No package.description set in your Cargo.toml, using package.name");
             package.name()
         },
-        |s| cargo::util::interning::InternedString::new(&s.trim().replace("\n", " \\\n")),
+        |s| cargo::util::interning::InternedString::new(&s.trim().replace('\n', " \\\n")),
     );
 
     // package homepage (or source code location)
@@ -402,6 +412,7 @@ fn real_main(options: Args, gctx: &mut GlobalContext) -> CliResult {
         project_src_uri = project_repo.uri,
         project_src_rev = project_repo.rev,
         git_srcpv = git_srcpv,
+        features = feature_variable_assignments(&options).join("\n"),
         cargo_bitbake_ver = env!("CARGO_PKG_VERSION"),
     )
     .map_err(|e| anyhow!("Unable to write to bitbake recipe file with: {}", e))?;
@@ -409,4 +420,30 @@ fn real_main(options: Args, gctx: &mut GlobalContext) -> CliResult {
     println!("Wrote: {}", recipe_path.display());
 
     Ok(())
+}
+
+/// Returns a vector of variable assignments for the feature selection given
+/// through `options`. This vector may come in handy for not generating many
+/// empty lines in the actual output in case that no feature selection is made
+/// at all.
+///
+/// # Arguments
+///
+/// * `options` - The program arguments with the current feature selection
+fn feature_variable_assignments(options: &Args) -> Vec<String> {
+    let mut output = Vec::new();
+
+    if let Some(features) = &options.features {
+        output.push(format!("CARGO_FEATURES = \"{}\"", features));
+    }
+
+    if options.all_features {
+        output.push(String::from("CARGO_ALL_FEATURES = \"1\""));
+    }
+
+    if options.no_default_features {
+        output.push(String::from("CARGO_NO_DEFAULT_FEATURES = \"1\""));
+    }
+
+    output
 }

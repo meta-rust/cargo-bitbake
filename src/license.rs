@@ -21,7 +21,7 @@ fn file_md5<P: AsRef<Path>>(license_file: P) -> Result<String, io::Error> {
     let mut context = Context::new();
 
     io::copy(&mut file, &mut context)?;
-    Ok(format!("{:x}", context.compute()))
+    Ok(format!("{:x}", context.finalize()))
 }
 
 /// Given the top level of the crate at `crate_root`, attempt to find

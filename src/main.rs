@@ -50,7 +50,7 @@ struct PackageInfo<'gctx> {
 impl<'gctx> PackageInfo<'gctx> {
     /// creates our package info from the global context and the
     /// `manifest_path`, which may not be provided
-    fn new(gctx: &GlobalContext, manifest_path: Option<String>) -> CargoResult<PackageInfo> {
+    fn new<'a>(gctx: &'a GlobalContext, manifest_path: Option<String>) -> CargoResult<PackageInfo<'a>> {
         let manifest_path = manifest_path.map_or_else(|| gctx.cwd().to_path_buf(), PathBuf::from);
         let root = important_paths::find_root_manifest_for_wd(&manifest_path)?;
         let ws = Workspace::new(&root, gctx)?;
@@ -170,7 +170,7 @@ fn main() {
     let Opt::Bitbake(opt) = Opt::from_args();
     let result = real_main(opt, &mut gctx);
     if let Err(e) = result {
-        cargo::exit_with_error(e, &mut *gctx.shell());
+        cargo::exit_with_error(e, &mut gctx.shell());
     }
 }
 

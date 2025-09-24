@@ -2,24 +2,24 @@
 authors = ["Doug Goldstein <cardoe@cardoe.com>"]
 categories = ["command-line-utilities"]
 description = "Generates a BitBake recipe for a package utilizing meta-rust's classes."
-documentation = "https://github.com/cardoe/cargo-bitbake"
-homepage = "https://github.com/cardoe/cargo-bitbake"
+documentation = "https://github.com/meta-rust/cargo-bitbake"
+homepage = "https://github.com/meta-rust/cargo-bitbake"
 keywords = ["cargo-subcommand", "bitbake", "yocto", "recipe"]
 license = "MIT/Apache-2.0"
 edition = "2018"
 name = "cargo-bitbake"
 readme = "README.md"
-repository = "https://github.com/cardoe/cargo-bitbake"
+repository = "https://github.com/meta-rust/cargo-bitbake"
 version = "0.3.16-alpha.0"
 rust-version = "1.60"
 
 [badges]
-is-it-maintained-issue-resolution = { repository = "cardoe/cargo-bitbake" }
-is-it-maintained-open-issues = { repository = "cardoe/cargo-bitbake" }
+is-it-maintained-issue-resolution = { repository = "meta-rust/cargo-bitbake" }
+is-it-maintained-open-issues = { repository = "meta-rust/cargo-bitbake" }
 maintenance = { status = "passively-maintained" }
 
 [badges.travis-ci]
-repository = "cardoe/cargo-bitbake"
+repository = "meta-rust/cargo-bitbake"
 
 [dependencies]
 anyhow = "^1.0"

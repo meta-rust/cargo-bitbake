@@ -19,7 +19,7 @@ use std::fmt::{self, Display};
 
 /// basic pattern to match ssh style remote URLs
 /// so that they can be fixed up
-/// git@github.com:cardoe/cargo-bitbake.git should match
+/// git@github.com:meta-rust/cargo-bitbake.git should match
 const SSH_STYLE_REMOTE_STR: &str = r".*@.*:.*";
 
 lazy_static! {
@@ -53,7 +53,7 @@ impl Display for GitPrefix {
 
 /// converts a GIT URL to a Yocto GIT URL
 pub fn git_to_yocto_git_url(url: &str, name: Option<&str>, prefix: GitPrefix) -> String {
-    // check if its a git@github.com:cardoe/cargo-bitbake.git style URL
+    // check if its a git@github.com:meta-rust/cargo-bitbake.git style URL
     // and fix it up if it is
     let fixed_url = if SSH_STYLE_REMOTE.is_match(url) {
         format!("ssh://{}", url.replace(":", "/"))

@@ -1,6 +1,6 @@
 # cargo-bitbake
 
-[![Build Status](https://travis-ci.org/cardoe/cargo-bitbake.svg?branch=master)](https://travis-ci.org/cardoe/cargo-bitbake) [![Latest Version](https://img.shields.io/crates/v/cargo-bitbake.svg)](https://crates.io/crates/cargo-bitbake)
+[![Build Status](https://travis-ci.org/meta-rust/cargo-bitbake.svg?branch=master)](https://travis-ci.org/meta-rust/cargo-bitbake) [![Latest Version](https://img.shields.io/crates/v/cargo-bitbake.svg)](https://crates.io/crates/cargo-bitbake)
 
 `cargo bitbake` is a Cargo subcommand that generates a
 [BitBake](https://en.wikipedia.org/wiki/BitBake) recipe that uses
@@ -123,6 +123,6 @@ LIC_FILES_CHKSUM=" \
 "
 
 SUMMARY = "Generates a BitBake recipe for a package utilizing meta-rust's classes."
-HOMEPAGE = "https://github.com/cardoe/cargo-bitbake"
+HOMEPAGE = "https://github.com/meta-rust/cargo-bitbake"
 LICENSE = "MIT | Apache-2.0"
 ```

@@ -25,8 +25,8 @@ LIC_FILES_CHKSUM = " \
 {lic_files}"
 
 SUMMARY = "{summary}"
-HOMEPAGE = "{homepage}"
 LICENSE = "{license}"
+{homepage}
 
 # includes this file if it exists but does not fail
 # this is useful for anything you may want to override from

@@ -17,14 +17,15 @@ extern crate md5;
 extern crate regex;
 extern crate structopt;
 
-use anyhow::{anyhow, Context as _};
+use anyhow::{Context as _, anyhow};
 use cargo::core::registry::PackageRegistry;
-use cargo::core::resolver::features::HasDevUnits;
 use cargo::core::resolver::CliFeatures;
-use cargo::core::GitReference;
+use cargo::core::resolver::features::HasDevUnits;
+use cargo::core::{GitReference, PackageIdSpec};
 use cargo::core::{Package, PackageSet, Resolve, Workspace};
 use cargo::ops;
-use cargo::util::{important_paths, CargoResult};
+use cargo::util::interning::InternedString;
+use cargo::util::{CargoResult, important_paths};
 use cargo::{CliResult, GlobalContext};
 use itertools::Itertools;
 use std::default::Default;
@@ -32,8 +33,8 @@ use std::env;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use structopt::clap::AppSettings;
 use structopt::StructOpt;
+use structopt::clap::AppSettings;
 
 mod git;
 mod license;
@@ -45,12 +46,17 @@ struct PackageInfo<'gctx> {
     _gctx: &'gctx GlobalContext,
     current_manifest: PathBuf,
     ws: Workspace<'gctx>,
+    package: Option<String>,
 }
 
 impl<'gctx> PackageInfo<'gctx> {
     /// creates our package info from the global context and the
     /// `manifest_path`, which may not be provided
-    fn new(gctx: &GlobalContext, manifest_path: Option<String>) -> CargoResult<PackageInfo> {
+    fn new(
+        gctx: &GlobalContext,
+        manifest_path: Option<String>,
+        package: Option<String>,
+    ) -> CargoResult<PackageInfo> {
         let manifest_path = manifest_path.map_or_else(|| gctx.cwd().to_path_buf(), PathBuf::from);
         let root = important_paths::find_root_manifest_for_wd(&manifest_path)?;
         let ws = Workspace::new(&root, gctx)?;
@@ -58,12 +64,24 @@ impl<'gctx> PackageInfo<'gctx> {
             _gctx: gctx,
             current_manifest: root,
             ws,
+            package,
         })
     }
 
     /// provides the current package we are working with
     fn package(&self) -> CargoResult<&Package> {
-        self.ws.current()
+        self.package
+            .as_ref()
+            // Try to find the package given on the command line
+            .map(|p_name| {
+                let p_name = InternedString::new(&p_name);
+                self.ws
+                    .members()
+                    .find(|p| p.name() == p_name)
+                    .ok_or_else(|| anyhow!("Package {} does not exist", p_name))
+            })
+            // Otherwise, take current one
+            .unwrap_or_else(|| self.ws.current())
     }
 
     /// Generates a package registry by using the Cargo.lock or
@@ -141,6 +159,10 @@ struct Args {
     /// Legacy Overrides: Use legacy override syntax
     #[structopt(short = "l", long = "--legacy-overrides")]
     legacy_overrides: bool,
+
+    /// Package to generate
+    #[structopt(short = "p", long = "--package")]
+    package: Option<String>,
 }
 
 #[derive(StructOpt, Debug)]
@@ -187,12 +209,13 @@ fn real_main(options: Args, gctx: &mut GlobalContext) -> CliResult {
     )?;
 
     // Build up data about the package we are attempting to generate a recipe for
-    let md = PackageInfo::new(gctx, None)?;
+    let md = PackageInfo::new(gctx, None, options.package)?;
 
     // Our current package
     let package = md.package()?;
-    let crate_root = package
-        .manifest_path()
+    let crate_root = md
+        .ws
+        .root_manifest()
         .parent()
         .expect("Cargo.toml must have a parent");
 
@@ -210,13 +233,11 @@ fn real_main(options: Args, gctx: &mut GlobalContext) -> CliResult {
         .iter()
         .filter_map(|pkg| {
             if let Some(Some(chksum)) = pkg_checksums.get(&pkg) {
-                src_uri_extras.push(
-                    format!(
-                        "SRC_URI[{name}-{version}.sha256sum] = \"{chksum}\"",
-                        name = pkg.name(),
-                        version = pkg.version(),
-                    )
-                );
+                src_uri_extras.push(format!(
+                    "SRC_URI[{name}-{version}.sha256sum] = \"{chksum}\"",
+                    name = pkg.name(),
+                    version = pkg.version(),
+                ));
             }
 
             // get the source info for this package
@@ -378,7 +399,11 @@ fn real_main(options: Args, gctx: &mut GlobalContext) -> CliResult {
         }
         // we should be using ${SRCPV} here but due to a bitbake bug we cannot. see:
         // https://github.com/meta-rust/meta-rust/issues/136
-        format!("{} = \".AUTOINC+{}\"", pv_append_key, &project_repo.rev[..10])
+        format!(
+            "{} = \".AUTOINC+{}\"",
+            pv_append_key,
+            &project_repo.rev[..10]
+        )
     } else {
         // its a tag so nothing needed
         "".into()

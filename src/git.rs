@@ -20,7 +20,8 @@ use std::fmt::{self, Display};
 /// basic pattern to match ssh style remote URLs
 /// so that they can be fixed up
 /// git@github.com:meta-rust/cargo-bitbake.git should match
-const SSH_STYLE_REMOTE_STR: &str = r".*@.*:.*";
+/// ssh://git@host:222/path.git must NOT match (it already has a scheme)
+const SSH_STYLE_REMOTE_STR: &str = r"^[^:/]+@[^:/]+:.*";
 
 lazy_static! {
     static ref SSH_STYLE_REMOTE: Regex = Regex::new(SSH_STYLE_REMOTE_STR).unwrap();
@@ -237,6 +238,24 @@ mod test {
         let url = git_to_yocto_git_url(repo, Some("cargo"), GitPrefix::Git);
         assert_eq!(url,
                 "git://git@github.com/rust-lang/cargo.git;protocol=ssh;nobranch=1;name=cargo;destsuffix=cargo");
+    }
+
+    #[test]
+    fn cargo_ssh_with_port() {
+        let repo = "ssh://git@git.example.com:222/foo/bar.git";
+        let url = git_to_yocto_git_url(repo, Some("bar"), GitPrefix::Git);
+        assert_eq!(url,
+                "git://git@git.example.com:222/foo/bar.git;protocol=ssh;nobranch=1;name=bar;destsuffix=bar");
+    }
+
+    #[test]
+    fn cargo_ssh_with_port_nosuffix() {
+        let repo = "ssh://git@git.example.com:222/foo/bar.git";
+        let url = git_to_yocto_git_url(repo, None, GitPrefix::Git);
+        assert_eq!(
+            url,
+            "git://git@git.example.com:222/foo/bar.git;protocol=ssh;nobranch=1"
+        );
     }
 
     #[test]
